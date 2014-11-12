@@ -446,7 +446,7 @@ class upnp:
 		try:
 			sock = socket(AF_INET,SOCK_STREAM)
 			sock.connect((host,port))
-			sock.settimeout(3);  // added by dave
+			sock.settimeout(3);  # added by dave
 			if self.DEBUG:
 				print self.STARS
 				print soapRequest
@@ -473,7 +473,7 @@ class upnp:
 				return False
 			else:
 				return body
-		except Exception, e:  // changed by dave chasing a problem
+		except Exception, e:  # changed by dave chasing a problem
 			print 'Caught socket exception:', e, hostName, controlURL
 			sock.close()
 			return False
