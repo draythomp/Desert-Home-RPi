@@ -1,7 +1,8 @@
 import json
 import time
 import sys
-
+# See http://www.desert-home.com/2014/10/using-rc-file-in-my-system.html
+# for a description of the .houserc file I use.
 def getHouseValues():
 	json_data=open("/home/pi/.houserc").read()
 	return json.loads(json_data)
@@ -13,7 +14,9 @@ def lprint(farg, *argv):
 		print arg,
 	print
 	sys.stdout.flush()
-
+    
+# See http://www.desert-home.com/2014/10/my-tiny-timer-class.html
+# for a description of how to use this timer.
 class timer:
 	_things = []
 	
