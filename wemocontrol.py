@@ -1,5 +1,4 @@
 #! /usr/bin/python
-# I added this line only to test git
 from miranda import upnp
 from miranda import msearch
 from miranda import set
