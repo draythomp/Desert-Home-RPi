@@ -3,7 +3,6 @@ from miranda import upnp
 from miranda import msearch
 from miranda import set
 import sys
-#from apscheduler.schedulers.blocking import BlockingScheduler
 import datetime
 from datetime import timedelta
 from datetime import datetime
@@ -75,12 +74,17 @@ def off(whichone):
     handleUpdate(whichone, status)
     lprint("turned %s off"%(whichone))
     return status
-
+    
+# Step through each light and see get its current state
+# then record the state in the database.
 def doLights():
     for switch in lightSwitches:
         thisOne = switch['name']
         updateDatabase(thisOne,get(thisOne))
-
+        
+# Look for incoming messages fromthe SysV interprocess communcation
+# facility.  This is limited in that it can only talk to processes
+# inside the same machine.  Inter machine comm doesn't happen
 def doComm():
     global firstTime
     #global scheditem
@@ -112,7 +116,7 @@ def doComm():
     except sysv_ipc.BusyError:
         pass # Only means there wasn't anything there 
 
-
+# If a command comes in from somewhere, this is where it's handled.
 def handleCommand(command):
     #lprint(" " + str(command))
     # the command comes in from php as something like
@@ -139,6 +143,9 @@ def handleCommand(command):
     else:
         lprint(" Weird command = " + str(c))
 
+# These are the commands for composite actions.  When
+# I want something that turns on two lights or something
+# different from basic on/off, I put it in with these.
 def outsideLightsOn():
     lprint (" Outside lights on")
     on("outsidegarage")
@@ -278,23 +285,14 @@ if __name__ == "__main__":
     want the contention to the database of separate threads doing things
     that way.
     
-    To use it, just pthe another entry into the table.
+    To use it, just put another entry into the table.
     '''
     lprint (" Setting up timed items")
     checkLightsTimer = timer(doLights, seconds=2)
     keepAliverTimer = timer(keepAlive, minutes=4)
-    # startTime = int(time.time())
-    # tasks = [{'whichOne': doLights,'interval' : 2, 'next': startTime+10},
-            # {'whichOne': keepAlive, 'interval' : (4*60), 'next' : startTime+15}]
     lprint ("going into the processing loop")
     while True:
         #pdb.set_trace()
-        # now = int(time.time())
-        # for task in tasks:
-            # if task['next'] <= now:
-                # task['next'] = now + task['interval']
-                # #print task['whichOne']
-                # task['whichOne']()
         doComm()
         # Now do a tick on the timers to allow them to run
         checkTimer.tick()
