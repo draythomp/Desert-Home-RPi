@@ -2,6 +2,7 @@
 from miranda import upnp
 from miranda import msearch
 from miranda import set
+import cherrypy
 import sys
 import datetime
 from datetime import timedelta
@@ -196,6 +197,12 @@ def updateDatabase(whichone, status, force=False):
         dbconn.commit()
     dbconn.close()
         
+# This is where the actual 'Hello World' goes out to the browser
+class WemoSC(object):
+    @cherrypy.expose
+    def index(self):
+        return "Hello world!"
+       
 if __name__ == "__main__":
     #When looking at a log, this will tell me when it is restarted
     lprint ("started")
@@ -203,6 +210,10 @@ if __name__ == "__main__":
     # the database where I'm storing stuff
     DATABASE=getHouseValues()["database"]
     lprint("Using database ", DATABASE);
+    # Get the ip address and port number you want to use
+    # from the houserc file
+    ipAddress=getHouseValues()["wemo"]["ipAddress"]
+    port = getHouseValues()["wemo"]["port"]
 
     firstTime = True
     debug = False
@@ -290,18 +301,21 @@ if __name__ == "__main__":
     lprint (" Setting up timed items")
     checkLightsTimer = timer(doLights, seconds=2)
     keepAliverTimer = timer(keepAlive, minutes=4)
-    lprint ("going into the processing loop")
-    while True:
-        #pdb.set_trace()
-        doComm()
-        # Now do a tick on the timers to allow them to run
-        checkTimer.tick()
-        ''' 
-        doing a sleep here releases the cpu for longer than the program runs
-        That way I reduce the load on the machine so it can do more stuff
-        '''
-        time.sleep(0.25) 
-        pass # this was a placeholder while writing the code.
+    # Now configure the cherrypy server using the values
+    cherrypy.config.update({'server.socket_host' : ipAddress,
+                            'server.socket_port': port,
+                            'engine.autoreload_on': False,
+                            })
+    # Subscribe to the 'main' channel in cherrypy with my timer
+    # tuck so the timers I use get updated
+    cherrypy.engine.subscribe("main", checkTimer.tick)
+    cherrypy.engine.subscribe("main", doComm);
+    lprint ("Hanging on the wait for HTTP message")
+    # Now just hang on the HTTP server looking for something to 
+    # come in.  The cherrypy dispatcher will update the things that
+    # are subscribed which will update the timers so the light
+    # status gets recorded.
+    cherrypy.quickstart(WemoSC())
     
     sys.exit("Should never, ever get here");
 
