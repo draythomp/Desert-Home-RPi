@@ -1,5 +1,5 @@
 #! /usr/bin/python
-from miranda import upnp
+from miranda import upnp 
 from miranda import msearch
 from miranda import set
 import cherrypy
