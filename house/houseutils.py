@@ -8,7 +8,7 @@ def getHouseValues():
 	return json.loads(json_data)
 
 # I use this print routine to log the date and time for things that happen
-# when software runs for several days without attention, the date and time 
+# When software runs for several days without attention, the date and time 
 # something happened becomes important.
 def lprint(farg, *argv):
 	print time.strftime("%A, %B, %d at %H:%M:%S"),

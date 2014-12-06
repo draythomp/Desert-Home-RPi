@@ -2,6 +2,7 @@
 from miranda import upnp 
 from miranda import msearch
 from miranda import set
+import cherrypy
 import sys
 import datetime
 from datetime import timedelta
@@ -118,7 +119,7 @@ def doComm():
 
 # If a command comes in from somewhere, this is where it's handled.
 def handleCommand(command):
-    #lprint(" " + str(command))
+    lprint(str(command))
     # the command comes in from php as something like
     # ('s:17:"AcidPump, pumpOff";', 2)
     # so command[0] is 's:17:"AcidPump, pumpOff'
@@ -127,7 +128,7 @@ def handleCommand(command):
         c = str(command[0].split('\"')[1]).split(',')
     except IndexError:
         c = str(command[0]).split(' ')    #this is for something I sent from another process
-    #lprint(c)
+    lprint(c)
     if (c[0] == 'OutsideLightsOn'):
         outsideLightsOn()
     elif (c[0] == 'OutsideLightsOff'):
@@ -141,7 +142,7 @@ def handleCommand(command):
     elif (c[0] == 'patioToggle'):
         toggle("patio")
     else:
-        lprint(" Weird command = " + str(c))
+        lprint("Weird command = " + str(c))
 
 # These are the commands for composite actions.  When
 # I want something that turns on two lights or something
@@ -166,9 +167,9 @@ def toggle(whichOne):
         
 def keepAlive():
     '''
-    For my own purposes, I update the database periodically with the time
-    so I can check to see if things are holding together.  I currently use the
-    time in the light switch records for this.
+    I update the database periodically with the timeso I can check to see 
+    if things are holding together.  I currently use the time in the light 
+    switch records for this.
     '''
     lprint(" keep alive")
     for switch in lightSwitches:
@@ -196,6 +197,47 @@ def updateDatabase(whichone, status, force=False):
         dbconn.commit()
     dbconn.close()
         
+# This is where the actual response goes out to the browser
+
+# First the process interface, it consists of a status report and
+# a command receiver.
+class WemoSC(object):
+    @cherrypy.expose
+    @cherrypy.tools.json_out() # This allows a dictionary input to go out as JSON
+    def status(self):
+        status = []
+        for item in lightSwitches:
+            status.append({item["name"]:get(item["name"])})
+        return status
+        
+    @cherrypy.expose
+    def pCommand(self, command):
+        handleCommand((command,0));
+        
+    @cherrypy.expose
+    def index(self):
+        status = "<strong>Current Wemo Light Switch Status</strong><br /><br />"
+        status += "Front Porch is " + get("frontporch") + "&nbsp;&nbsp;"
+        status += '<a href="wemocommand?whichone=frontporch"><button>Toggle</button></a>'
+        status += "<br />"
+        status += "Outside Garage Lights are " + get("outsidegarage") + "&nbsp;&nbsp;"
+        status += '<a href="wemocommand?whichone=outsidegarage"><button>Toggle</button></a>'
+        status += "<br />"
+        status += "Cactus Spot Lights are " + get("cactusspot") + "&nbsp;&nbsp;"
+        status += '<a href="wemocommand?whichone=cactusspot"><button>Toggle</button></a>'
+        status += "<br />"
+        status += "West Patio Lights are " + get("patio") + "&nbsp;&nbsp;"
+        status += '<a href="wemocommand?whichone=patio"><button>Toggle</button></a>'
+        status += "<br />"
+        return status
+        
+    @cherrypy.expose
+    def wemocommand(self, whichone):
+        # first change the light state
+        toggle(whichone)
+        # now reload the index page to tell the user
+        raise cherrypy.InternalRedirect('/index')
+    
 if __name__ == "__main__":
     #When looking at a log, this will tell me when it is restarted
     lprint ("started")
@@ -203,6 +245,10 @@ if __name__ == "__main__":
     # the database where I'm storing stuff
     DATABASE=getHouseValues()["database"]
     lprint("Using database ", DATABASE);
+    # Get the ip address and port number you want to use
+    # from the houserc file
+    ipAddress=getHouseValues()["wemo"]["ipAddress"]
+    port = getHouseValues()["wemo"]["port"]
 
     firstTime = True
     debug = False
@@ -289,19 +335,22 @@ if __name__ == "__main__":
     '''
     lprint (" Setting up timed items")
     checkLightsTimer = timer(doLights, seconds=2)
-    keepAliverTimer = timer(keepAlive, minutes=4)
-    lprint ("going into the processing loop")
-    while True:
-        #pdb.set_trace()
-        doComm()
-        # Now do a tick on the timers to allow them to run
-        checkTimer.tick()
-        ''' 
-        doing a sleep here releases the cpu for longer than the program runs
-        That way I reduce the load on the machine so it can do more stuff
-        '''
-        time.sleep(0.25) 
-        pass # this was a placeholder while writing the code.
+    keepAliveTimer = timer(keepAlive, minutes=4)
+    # Now configure the cherrypy server using the values
+    cherrypy.config.update({'server.socket_host' : ipAddress,
+                            'server.socket_port': port,
+                            'engine.autoreload_on': False,
+                            })
+    # Subscribe to the 'main' channel in cherrypy with my timer
+    # tuck so the timers I use get updated
+    cherrypy.engine.subscribe("main", checkTimer.tick)
+    cherrypy.engine.subscribe("main", doComm);
+    lprint ("Hanging on the wait for HTTP message")
+    # Now just hang on the HTTP server looking for something to 
+    # come in.  The cherrypy dispatcher will update the things that
+    # are subscribed which will update the timers so the light
+    # status gets recorded.
+    cherrypy.quickstart(WemoSC())
     
-    sys.exit("Should never, ever get here");
+    sys.exit("Told to shut down");
 
