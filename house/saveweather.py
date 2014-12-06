@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# watch out for cr in line above
 import sys
 import json
 import time

@@ -1,4 +1,5 @@
 #! /usr/bin/python
+# watch out for cr in line above
 from miranda import upnp 
 from miranda import msearch
 from miranda import set
