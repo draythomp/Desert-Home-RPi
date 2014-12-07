@@ -9,7 +9,7 @@ import sqlite3
 from houseutils import getHouseValues, lprint
 
 def recordInLog():
-	lprint("I'm alive")
+	lprint(sys.argv[0]," Running")
 
 #-------------------------------------------------  
 # get the values out of the houserc file
@@ -28,6 +28,7 @@ scheditem.start()
 #scheditem.add_job(resetRain, 'cron', hour=24, minute=0)
 scheditem.add_job(recordInLog, 'interval', minutes=30)
 
+recordInLog()
 while True:
     try:
         buff += sys.stdin.read(1) #This is a blocking read

@@ -316,7 +316,11 @@ int main(int argc, char **argv)
             default:
                 exit(1);
        }
-    fprintf (stderr,"libusbDebug = %d, noisy = %d\n", libusbDebug, noisy);
+    fprintf(stderr,"%s Starting ... ",argv[0]);
+    fprintf(stderr,"libusbDebug = %d, noisy = %d\n", libusbDebug, noisy);
+    // The Pi linker can give you fits.  If you get a linker error on
+    // the next line, set LD_LIBRARY_PATH to /usr/local/lib 
+    fprintf(stderr,"This is not an error!! Checking linker, %s\n", libusb_strerror(0));
 
     if (signal(SIGINT, sig_handler) == SIG_ERR)
         fprintf(stderr,"Couldn't set up signal handler\n"); 
@@ -464,6 +468,7 @@ int main(int argc, char **argv)
     //
     // I don't want to just hang up and read the reports as fast as I can, so
     // I'll space them out a bit.  It's weather, and it doesn't change very fast.
+    fprintf(stderr,"Starting reads\n");
     int tickcounter= 0;
     while(1){
         sleep(1);
