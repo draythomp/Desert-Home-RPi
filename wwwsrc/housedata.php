@@ -10,6 +10,7 @@ if (isset($request_headers['Origin'])){
 }
 
 define('IS_AJAX', isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
+$dbTimeout = 100;
 
 /* if(!IS_AJAX){
 	echo("Bug Off ");
@@ -27,9 +28,9 @@ assure the rest of them will execute just fine, since the
 second boundary will pass.
 */
 function timedQuerySingle($statement){
-	global $db;
+	global $db, $dbTimeout;
 
-	if ($db->busyTimeout(100)){
+	if ($db->busyTimeout($dbTimeout)){
 		$result = $db->querySingle($statement);
 		}
 	else{
@@ -42,6 +43,7 @@ function timedQuerySingle($statement){
 $config = file_get_contents("/home/pi/.houserc");
 $dbName = json_decode($config,true)["database"];
 $db= new SQLite3($dbName);
+$dbTimeout = json_decode($config,true)["databaseLockDelay"];
     
 # Get the various items out of the data base
 # This could be one giant array() statement

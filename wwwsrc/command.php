@@ -43,6 +43,14 @@ function controlThermostats($whichone,$command){
 	return(true);
 }
 
+function ipControl($whichOne,$command){
+    echo "<br />";
+    echo "URL will be: $whichOne/$command";
+	$response = file_get_contents("http://$whichOne/$command");
+	return(true);
+
+};
+
 if( !$_REQUEST["command"] ){
 	echo "Didn't get a command";
 	die();
@@ -110,6 +118,12 @@ case "preset":
 		echo "couldn't forward error: $msg_err<br />";
 	break;
 case "lights":
+    $wemoIp = json_decode($config,true)["wemocontrol"]["ipAddress"];
+    $wemoPort = json_decode($config,true)["wemocontrol"]["port"];
+    $c = $commandParts[1];
+    ipControl("$wemoIp:$wemoPort", "pCommand?command=$c");
+    break;
+/*  This is the old code that used the sys v message queue
 	$mq = msg_get_queue(13);
 	#echo "mq is $mq<br />";
 	$c = $commandParts[1];
@@ -117,6 +131,7 @@ case "lights":
 	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
 		echo "couldn't forward, error: $msg_err<br />";
 	break;
+    */
 case "resetcommand":
 	$mq = msg_get_queue(14);
 	#echo "mq is $mq<br />";

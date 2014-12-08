@@ -248,8 +248,8 @@ if __name__ == "__main__":
     lprint("Using database ", DATABASE);
     # Get the ip address and port number you want to use
     # from the houserc file
-    ipAddress=getHouseValues()["wemo"]["ipAddress"]
-    port = getHouseValues()["wemo"]["port"]
+    ipAddress=getHouseValues()["wemocontrol"]["ipAddress"]
+    port = getHouseValues()["wemocontrol"]["port"]
 
     firstTime = True
     debug = False

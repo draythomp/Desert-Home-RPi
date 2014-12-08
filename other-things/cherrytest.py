@@ -52,8 +52,8 @@ if __name__ == '__main__':
 
     # Get the ip address and port number you want to use
     # from the houserc file
-    ipAddress=getHouseValues()["wemo"]["ipAddress"]
-    port = getHouseValues()["wemo"]["port"]
+    ipAddress=getHouseValues()["wemocontrol"]["ipAddress"]
+    port = getHouseValues()["wemocontrol"]["port"]
     # Now configure the cherrypy server using the values
     cherrypy.config.update({'server.socket_host' : ipAddress,
                             'server.socket_port': port,
