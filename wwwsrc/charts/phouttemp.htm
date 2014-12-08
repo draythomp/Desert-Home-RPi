@@ -1,0 +1,68 @@
+<head>
+	<title>Outside Temperature</title>
+<style>
+	body{background-color:rgb(240,255,255);}
+</style>
+</head>
+<body onload=init()>
+	<center>
+	<table><tbody><tr><td width="100%">
+	<canvas id=tempCanvas width=200 height=300></canvas> 
+	</td></tr></tbody></table>
+	</center>
+</body>
+<!-- http://api.thingspeak.com/channels/4187/field/1/last -->
+<script>
+	function init()
+	{
+		// Initialzing gauges
+		tempGauge = new steelseries.Radial('tempCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			minValue:0,
+			maxValue:140,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE6,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			section: null,
+			lcdDecimals: 0,
+			area: null,
+			titleString: 'Outside Temp',
+			unitString: '°F',
+			threshold: 100,
+			lcdVisible: true
+		});
+
+		// Start the gauge update
+		(function showIt(){
+			var saveit;
+			var site = "../housedata.php";
+			//alert('going for ' + site);
+			$.ajax({
+				type: 'GET',
+				url: site,
+				dataType: 'json',
+				cache: false,
+				data: {},
+				processData: true,
+				async: false, // you have to have this so the data will arrive before display
+				success: function(data) {
+					//alert("the url returned success");
+					//alert("got back " + data);
+					tempGauge.setValueAnimated(eval(data.outsidetemp));
+				},
+				error: function(a){
+					//alert("here I am in the error routine");
+				}
+			});
+			//tempGauge.setValueAnimated(75);
+			//alert('after the get ');
+			setTimeout(showIt, 10000);
+		})();
+	}
+</script>
+
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+<script type=text/javascript src=/SteelSeries/tween-min.js></script>
+<script type=text/javascript src=/SteelSeries/steelseries-min.js></script>

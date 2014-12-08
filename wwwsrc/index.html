@@ -1,0 +1,533 @@
+<html>
+<head><meta charset="UTF-8">
+<style>
+	body{background-color:#b0c4de;}
+	table {
+		float:left;
+		background:transparent;
+		margin-left:10px;
+	}
+	form {
+		margin:0;
+		padding:0;
+	}
+	h1{
+		display: inline;
+	}
+</style>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type=text/javascript src=SteelSeries/tween-min.js></script>
+<script type=text/javascript src=SteelSeries/steelseries.js></script>
+<script type=text/javascript src=purl.js></script>
+<script>
+$(document).ready(function(){
+	gatherdata();
+});
+
+function isNumber(n) {
+	return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
+function gatherdata(){
+	$.getJSON("housedata.php",function(data,status){ 
+		//console.log(data);
+		// the value false will cause the gauges
+		// to stop working and display 'NaN'
+		if (isNumber(data.power)){
+			powerGauge.setValueAnimated(data.power);
+		}
+		if (isNumber(data.outsidetemp)){
+			tempGauge.setValueAnimated(data.outsidetemp);
+		}
+        // The weather station
+        var direction={"NNW":337.5,"NW":315,"WNW":292.5,"W":270,
+            "WSW":247.5,"SW":225,"SSW":202.5,"S":180,
+            "SSE":157.5,"SE":135,"ESE":112.5,"E":90,
+            "ENE":67.5,"NE":45,"NNE":22.5,"N":0};
+        winddGauge.setValueAnimated(direction[data.wd]);
+        windsGauge.setValueAnimated(data.ws);
+		// The Wemo Light Switches
+		if (data.log=="On"){
+			$("#log").css("background-color","yellow");
+			}
+		else{
+			$("#log").css("background-color","lightgray");
+			}
+		if (data.lfp=="On"){
+			$("#lfp").css("background-color","yellow");
+			}
+		else{
+			$("#lfp").css("background-color","lightgray");
+			}
+		if (data.lcs=="On"){
+			$("#lcs").css("background-color","yellow");
+			}
+		else{
+			$("#lcs").css("background-color","lightgray");
+			}
+		if (data.lp=="On"){
+			$("#lp").css("background-color","yellow");
+			}
+		else{
+			$("#lp").css("background-color","lightgray");
+			}
+		// these are the items for the thermostats
+		$("#ntm").text(data.ntm);
+			<!-- change the rotating fan image -->
+			if (data.ntm=="Recirc"){
+				$("#ntfi").attr("src","/images/FanGreenAnim.gif");
+				}
+			else if (data.ntm=="Cooling"){
+				$("#ntfi").attr("src","/images/FanBlueAnim.gif");
+				}
+			else if (data.ntm=="Heating"){
+				$("#ntfi").attr("src","/images/FanRedAnim.gif");
+				}
+			else {
+				$("#ntfi").attr("src","/images/FanBlack.gif");
+				}
+		$("#stm").text(data.stm);
+			if (data.stm=="Recirc"){
+				$("#stfi").attr("src","/images/FanGreenAnim.gif");
+				}
+			else if (data.stm=="Cooling"){
+				$("#stfi").attr("src","/images/FanBlueAnim.gif");
+				}
+			else if (data.stm=="Heating"){
+				$("#stfi").attr("src","/images/FanRedAnim.gif");
+				}
+			else {
+				$("#stfi").attr("src","/images/FanBlack.gif");
+				}
+		$("#ntt").text(data.ntt);
+		$("#stt").text(data.stt);
+		$("#ntms").text(data.ntms);
+		$("#stms").text(data.stms);
+		$("#ntfs").text(data.ntfs);
+		$("#stfs").text(data.stfs);
+		$("#ntts").text(data.ntts);
+		$("#stts").text(data.stts);
+		// items for the acid pump
+		$("#aps").text(data.aps);
+		$("#apl").text(data.apl);
+/* 		if (data.aps == "Off"){
+			$("#apboff").attr("disabled","disabled");
+			$("#apbon").removeAttr("disabled");
+			}
+		else if (data.aps == "ON"){
+			$("#apbon").attr("disabled","disabled");
+			$("#apboff").removeAttr("disabled");
+			}
+		else{
+			$("#apbon").attr("disabled","disabled");
+			$("#apboff").attr("disabled","disabled");
+			}
+ */
+		// Septic Tank level
+		$("#stl").text(data.stl);
+		// garage door
+		$("#gd1").text(data.gd1);
+		if (data.gd1 == "closed"){
+			$("#gd1cb").attr("disabled","disabled");
+			$("#gd1ob").removeAttr("disabled");
+			}
+		else if (data.gd1 == "open"){
+			$("#gd1ob").attr("disabled","disabled");
+			$("#gd1cb").removeAttr("disabled");
+			}
+		else{
+			$("#gd1ob").attr("disabled","disabled");
+			$("#gd1cb").attr("disabled","disabled");
+			}
+		$("#gd2").text(data.gd2);
+		if (data.gd2 == "closed"){
+			$("#gd2cb").attr("disabled","disabled");
+			$("#gd2ob").removeAttr("disabled");
+			}
+		else if (data.gd2 == "open"){
+			$("#gd2ob").attr("disabled","disabled");
+			$("#gd2cb").removeAttr("disabled");
+			}
+		else{
+			$("#gd2ob").attr("disabled","disabled");
+			$("#gd2cb").attr("disabled","disabled");
+			}
+		// water heater
+		$("#wh").text(data.wh);
+		if (data.wh == "on"){
+			$("#whonb").attr("disabled","disabled");
+			$("#whoffb").removeAttr("disabled");
+			$("#wh").css("color","red");
+			}
+		else if (data.wh == "off"){
+			$("#whoffb").attr("disabled","disabled");
+			$("#whonb").removeAttr("disabled");
+			$("#wh").css("color","green");
+			}
+		else{
+			$("#whoffb").attr("disabled","disabled");
+			$("#whonb").attr("disabled","disabled");
+			$("#wh").css("color","black");
+			}
+		// pool
+		$("#pm").text(data.pm);
+		if (data.pm == "Off"){
+			$("#pmbo").attr("disabled","disabled");
+			$("#pmbh").removeAttr("disabled");
+			$("#pmbl").removeAttr("disabled");
+			}
+		if (data.pm == "High"){
+			$("#pmbh").attr("disabled","disabled");
+			$("#pmbo").removeAttr("disabled");
+			$("#pmbl").removeAttr("disabled");
+			}
+		if (data.pm == "Low"){
+			$("#pmbl").attr("disabled","disabled");
+			$("#pmbh").removeAttr("disabled");
+			$("#pmbo").removeAttr("disabled");
+			}
+		$("#pw").text(data.pw);
+		$("#pl").text(data.pl);
+		if(data.pl == "On"){
+			$("#plbon").css("background-color","yellow");
+			}
+		else{
+			$("#plbon").css("background-color","lightgray");
+		}
+		$("#pf").text(data.pf);
+		$("#ps").text(data.ps);
+		if (data.pm == "Off"){
+			data.pt = "Unavailable, Motor Off";
+			 $("#pt").css("color","red");
+		}
+		else{
+			 $("#pt").css("color","black");
+		}
+		$("#pt").text(data.pt);
+	});
+	setTimeout(gatherdata, 1000);
+}
+</script>
+<script>
+	function doit(device,command){
+		$.post( "command.php",
+			{command:device+' '+command,secret:secret},
+			function(stuff){
+				$("#statusBox").append(stuff);
+				$bottom=$("#statusBox").prop('scrollHeight');
+				$("#statusBox").scrollTop($bottom);
+			}
+		);
+	};
+
+</script>
+</head>
+<body onload=init()>
+<table border="1"> <!--Page Table -->
+	<tr> <!-- Title Line-->
+		<td style="text-align: center;">
+		<h1>Desert Home Controller</h1>
+		<br />All values (including time) local to my house in Arizona, USA
+		</td>
+	</tr>
+	<tr> <!-- This holds the SteelSeries gauges -->
+		<td style="vertical-align: center;">
+		<canvas id=clockCanvas width=200 height=300>No canvas in your browser...sorry...</canvas> 
+		<canvas id=powerCanvas width=200 height=300></canvas> 
+		<canvas id=tempCanvas width=200 height=300></canvas>
+		<canvas id=winddCanvas width=200 height=300></canvas>
+		<canvas id=windsCanvas width=200 height=300></canvas>
+		</td>
+	</tr>
+	<tr> <!-- And these are the preset buttons -->
+		<td style="text-align: center;">
+		Presets<br />
+		<button style="background-color:lightgray" onClick="doit('preset','acoff')">A/C System Off</button>
+		<button style="background-color:lightgray" onClick="doit('preset','temp98')">Temp=98</button>
+		<button style="background-color:lightgray" onClick="doit('preset','recirc')">Fans Recirc</button>
+		<button style="background-color:lightgray" onClick="doit('preset','summernight')">Summer Night</button>
+		<button style="background-color:lightgray" onClick="doit('preset','winternight')">Winter Night</button>
+		<button style="background-color:lightgray" onClick="doit('preset','peakno')">No Peak Handling</button>
+		<button style="background-color:lightgray" onClick="doit('preset','peakyes')">Peak Handling On</button>
+		<button style="background-color:lightgray" onClick="doit('resetcommand','all')">Reset Monitor</button>
+		</td>
+	</tr>
+	<tr> <!-- A place to put chart links -->
+		<td>
+		<center>
+		Charts and Graphs<br />
+		<form>
+		<input type="button" style="background-color:lightgray" value="House Chart" onClick="parent.location='/charts/highpowertemp.html'">
+		<input type="button" style="background-color:lightgray" value="Dynamic Chart" onClick="parent.location='/charts/dynamic.html'">
+		<input type="button" style="background-color:lightgray" value="Appliance Chart" onClick="parent.location='/charts/highgraphappliance.html'">
+		<input type="button" style="background-color:lightgray" value="Xively Day Chart" onClick="parent.location='/charts/CosmGraphPower.html'">
+		<input type="button" style="background-color:lightgray" value="Appliance Chart" onClick="parent.location='/charts/CosmGraphAppliance.html'">
+		<input type="button" style="background-color:lightgray" value="GroveStream Gauge" onClick="parent.location='/charts/grovegauge.html'">
+		<input type="button" style="background-color:lightgray" value="ThingSpeak Gauge" onClick="parent.location='/charts/thingspeaktemp.html'">
+		</form>
+		</center>
+		</td>
+	</tr>
+	<tr> <!-- this is where the light status goes -->
+		<td>
+		<center>
+		Controlled Light Status (yellow is on)<br />
+		<input id=lfp type="button" style="background-color:lightgray" value="Front Porch" onClick="doit('lights','fPorchToggle')">
+		<input id=log type="button" style="background-color:lightgray" value="Outside Garage" onClick="doit('lights','garageToggle')">
+		<input id=lcs type="button" style="background-color:lightgray" value="Cactus Spot" onClick="doit('lights','cactusToggle')">
+		<input id=lp type="button" style="background-color:lightgray" value="Patio" onClick="doit('lights','patioToggle')">
+		<br />
+		<button style="background-color:lightgray" onClick="doit('lights','OutsideLightsOn')">Outside Lights On</button>
+		<button style="background-color:lightgray" onClick="doit('lights','OutsideLightsOff')">Outside Lights Off</button>
+		</center>
+		</td>
+	</tr>
+	<tr> <!-- These are the devices -->
+		<td>
+		<!-- Table for the thermostats -->
+		<table border="1" cellpadding="3" cellspacing= "1">
+		<tr style="color:black; background-color:yellow">
+			<td><strong><center>North Thermostat</center></strong></td>
+			<td><strong><center>South Thermostat</center></strong></td>
+		</tr>
+		<tr>
+			<td>Currently: <span id=ntm></span><br />
+			Temperature: <span id=ntt></span><br />
+			<img id=ntfi src="images/FanBlack.gif" alt="" border=0 height=50 width=50 style="float:right"></img><br />
+			Settings:<br />
+			Mode: <span id=ntms></span><br />
+			<center>
+			<button style="background-color:lightgray" onClick="doit('nthermo','modeOff')">Off</button>
+			<button style="background-color:lime" onClick="doit('nthermo','modeCool')">Cool</button>
+			<button style="background-color:salmon" onClick="doit('nthermo','modeHeat')">Heat</button>
+			</center>
+			Temperature: <span id=ntts></span><br />
+			<center>
+			<form action="javascript:void(0);">
+			Change: <input type="number" name="inputbox" value="75" min="60" max="99">
+				<input type="button" value="Set" onclick="doit('nthermo','temp=' + this.form.inputbox.value)">
+			</form>
+			</center>
+			Fan: <span id=ntfs></span><br />
+			<center>
+			<button style="background-color:lightgray" onClick="doit('nthermo','fanAuto')">Auto</button>
+			<button style="background-color:lightgray" onClick="doit('nthermo','fanOn')">On</button>
+			<button style="background-color:lightgray" onClick="doit('nthermo','fanRecirc')">Recirc</button>
+			</center>
+			</td>
+			<td>Currently: <span id=stm></span><br />
+			Temperature: <span id=stt></span><br />
+			<img id=stfi src="images/FanBlack.gif" alt="" border=0 height=50 width=50 style="float:right"></img><br />
+			Settings:<br />
+			Mode: <span id=stms></span><br />
+			<center>
+			<button style="background-color:lightgray" onClick="doit('sthermo','modeOff')">Off</button>
+			<button style="background-color:lime" onClick="doit('sthermo','modeCool')">Cool</button>
+			<button style="background-color:salmon" onClick="doit('sthermo','modeHeat')">Heat</button>
+			</center>
+			Temperature: <span id=stts></span><br />
+			<center>
+			<form action="javascript:void(0);">
+			Change: <input type="number" name="inputbox" value="75" min="60" max="99">
+				<input type="button" value="Set" onclick="doit('sthermo','temp=' + this.form.inputbox.value)">
+			</form>
+			</center>
+			Fan: <span id=stfs></span><br />
+			<center>
+			<button style="background-color:lightgray" onClick="doit('sthermo','fanAuto')">Auto</button>
+			<button style="background-color:lightgray" onClick="doit('sthermo','fanOn')">On</button>
+			<button style="background-color:lightgray" onClick="doit('sthermo','fanRecirc')">Recirc</button>
+			</center>
+			</td>
+		</tr>
+		</table>
+		<!-- Table for the swimming pool -->
+		<table border="1" cellpadding="3" cellspacing= "1">
+		<tr style="color:black; background-color:yellow">
+			<td colspan="2"><strong><center>Pool</center></strong></td>
+		</tr>
+		<tr>
+			<td>Motor: <span id=pm>wait</span><br /></td>
+			<td>
+			<button id=pmbo style="background-color:lightgray" onClick="doit('pool','pumpoff')">Off</button>
+			<button id=pmbh style="background-color:lightgray" onClick="doit('pool','pumphigh')">High</button>
+			<button id=pmbl style="background-color:lightgray" onClick="doit('pool','pumplow')">Low</button>
+			</td>
+		<tr>
+			<td>Waterfall: <span id=pw>wait</span><br /></td>
+			<td>
+			<button style="background-color:lightgray" onClick="doit('pool','waterfalloff')">Off</button>
+			<button style="background-color:lightgray" onClick="doit('pool','waterfallon')">On</button>
+			</td>
+		</tr>
+			<td>Light: <span id=pl>wait</span><br /></td>
+			<td>
+			<button id=plboff style="background-color:lightgray" onClick="doit('pool','lightoff')">Off</button>
+			<button id=plbon style="background-color:lightgray" onClick="doit('pool','lighton')">On</button>
+			</td>
+		</tr>
+		<tr>
+			<td>Fountain: <span id=pf>wait</span><br /></td>
+			<td>
+			<button style="background-color:lightgray" onClick="doit('pool','fountainoff')">Off</button>
+			<button style="background-color:lightgray" onClick="doit('pool','fountainon')">On</button>
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2">Solar: <span id=ps>wait</span><br /></td>
+		</tr>
+		<tr>
+			<td colspan="2">Temp: <span id=pt>wait</span><br /></td>
+		</tr>
+		</table>
+		<!-- Table for the acid pump -->
+		<table border="1" cellpadding="3" cellspacing= "1">
+		<tr style="color:black; background-color:yellow"> <!-- Title Row -->
+			<td><strong><center>Acid Pump</center></strong></td>
+		</tr>
+		<tr> <!-- First row is the Acid Pump -->
+			<td>Currently: <span id=aps>wait</span><br />
+			Level: <span id=apl>wait</span><br />
+			<center>
+			<button id=apbon style="background-color:lightgray" onClick="doit('apump','pumpOn')">On</button>
+			<button id=apboff style="background-color:lightgray" onClick="doit('apump','pumpOff')">Off</button>
+			</center>
+			</td>
+		</tr>
+		<tr style="color:black; background-color:yellow"> <!-- Title Row -->
+			<td><strong><center>Septic Tank</center></strong></td>
+		</tr>
+		<tr> <!-- Second row is the Septic Tank -->
+			<td>Septic Tank: <span id=stl>wait</span><br />
+			</td>
+		</tr>
+		</table>
+		<!-- Table for the garage controller -->
+		<table border="1" cellpadding="3" cellspacing= "1">
+		<tr style="color:black; background-color:yellow"> <!-- Title Row -->
+			<td colspan="2"><strong><center>Garage</center></strong></td>
+		</tr>
+		<tr> <!-- First row door 1 -->
+			<td>Door 1: <span id=gd1>wait</span></td>
+			<td>
+			<button id=gd1ob style="background-color:lightgray" onClick="doit('garage','door1open')">Open</button>
+			<button id=gd1cb style="background-color:lightgray" onClick="doit('garage','door1close')">Close</button>
+			</td>
+		</tr>
+		<tr> <!--Second row door 2 -->
+			<td>Door 2: <span id=gd2>wait</span></td>
+			<td>
+			<button id=gd2ob style="background-color:lightgray" onClick="doit('garage','door2open')">Open</button>
+			<button id=gd2cb style="background-color:lightgray" onClick="doit('garage','door2close')">Close</button>
+			</td>
+		</tr>
+		<tr> <!-- Third Row Water Heater -->
+			<td>Water Heater: <span id=wh>wait</span></td>
+			<td>
+			<button id=whonb style="background-color:lightgray" onClick="doit('garage','waterhon')">On</button>
+			<button id=whoffb style="background-color:lightgray" onClick="doit('garage','waterhoff')">Off</button>
+			</td>
+		</tr>
+		</table>
+		</td>
+	</tr>
+	<tr> <!--The little diag window-->
+		<td>
+		<table>
+		<tr>
+			<td>
+			<button style="background-color:lightgray" onClick="$('#statusBox').toggle()">Diag</button>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			<div  id=statusBox style="background-color: #c0ffff; border-color: 000000; 
+				border-style: solid; border-width: 2px; font-family: Courier; 
+				font-size: 13; height: 200px; overflow: auto;  width: 400px;">
+				Diagnostic Window.<br /></div>
+			</td>
+		</tr>
+		</table>
+		</td>
+	</tr>
+</table> 
+<!-- Initialize the gauges -->
+<script> 
+	var secret;
+	function init(){
+		$('#statusBox').hide();
+		var url = $.url();
+		secret = url.param('secret');
+		//initialize the gauges
+		//First the power gauge
+		powerGauge = new steelseries.Radial('powerCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			minValue:0,
+			maxValue:15000,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE6,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			lcdDecimals: 0,
+			section: null,
+			area: null,
+			titleString: 'Real Power',
+			unitString: 'Watts',
+			threshold: 10000,
+			lcdVisible: true
+		});
+		tempGauge = new steelseries.Radial('tempCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			minValue:0,
+			maxValue:140,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE6,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			section: null,
+			lcdDecimals: 0,
+			area: null,
+			titleString: 'Outside Temp',
+			unitString: '°F',
+			threshold: 100,
+			lcdVisible: true
+		});
+		myClock = new steelseries.Clock('clockCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE1,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			timeZoneOffsetHour: -7,
+			timeZoneOffsetMinute: 0,
+			section: null,
+			area: null
+		});
+		winddGauge = new steelseries.Compass('winddCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE1,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			section: null,
+			area: null
+		});
+        windsGauge = new steelseries.Radial('windsCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+            size: 200,
+			minValue:0,
+			maxValue:30,
+            titleString: 'Wind Speed',
+            unitString: 'MPH',
+			frameDesign: steelseries.FrameDesign.BRASS,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+            threshold: 10,
+            lcdVisible: true
+        });
+	};
+</script>
+</body>

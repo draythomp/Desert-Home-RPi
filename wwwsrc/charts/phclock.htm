@@ -1,0 +1,36 @@
+<head>
+	<title>Power Usage</title>
+<style>
+	body{background-color:rgb(240,255,255);}
+</style>
+</head>
+<body onload=init()>
+	<center>
+	<table><tbody><tr><td width="100%">
+	<canvas id=clockCanvas width=200 height=300></canvas>
+	</td></tr></tbody></table>
+	</center>
+</body>
+ 
+ <script>
+	function init()
+	{
+		// Initialzing clock
+		Clock = new steelseries.Clock('clockCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE1,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			timeZoneOffsetHour: -7,
+			timeZoneOffsetMinute: 0,
+			section: null,
+			area: null
+		});
+	}
+</script>
+
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+<script type=text/javascript src=../SteelSeries/tween-min.js></script>
+<script type=text/javascript src=../SteelSeries/steelseries.js></script>

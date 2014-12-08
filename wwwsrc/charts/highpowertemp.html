@@ -1,0 +1,157 @@
+<html>
+	<LINK REL="SHORTCUT ICON" HREF="/favicon.ico" />
+	<title>Desert Home HighCharts Graph</title>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<style>
+	body{background-color:rgb(240,255,255);}
+</style>
+</head>
+
+<body>
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8/jquery.min.js"></script>
+	<script type='text/javascript' src="http://code.highcharts.com/highcharts.js"></script>
+	
+	<!--The HighCharts chart goes in here-->
+	<div id='container' style='width:100%; height:310px;'> </div>
+
+	<!-- 
+		This little thing allows you to put a parameter in the URL to get
+	 	multiple days.  Use a ? then the number of days i.e. ?day=2 will get 
+		you two days worth of data.
+	-->
+	<script type="text/javascript">
+		var queryString = new Array();
+		var parameters = window.location.search.substring(1).split('&');
+		for (var i=0; i<parameters.length; i++) {
+			var pos = parameters[i].indexOf('=');
+    			// If there is an equal sign, separate the parameter into the name and value,
+    			// and store it into the queryString array.
+    			if (pos > 0) {
+        			var paramname = parameters[i].substring(0,pos);
+        			var paramval = parameters[i].substring(pos+1);
+        			queryString[paramname] = unescape(paramval.replace(/\+/g,' '));
+    			}
+			else {
+        			//special value when there is a querystring parameter with no value
+        			queryString[parameters[i]]="[nil]" 
+    			}
+		}
+	</script>
+	
+	<script type="text/javascript">
+		$(document).ready(function(){
+			var options = {
+				chart: {
+					renderTo: 'container',
+					type: 'line',
+					backgroundColor: 'rgb(240,255,255)',
+					borderColor: 'rgb(0,0,0)',
+					borderWidth: 2,
+					zoomType: 'x'
+				},
+				title: {
+					text: 'Desert Home Chart'
+				},
+				plotOptions: {
+					series: {
+						marker: {
+							radius: 2
+						}
+					}
+				},
+				yAxis: [{
+					labels:{
+						format: '{value}W',
+						style: {
+							color: Highcharts.getOptions().colors[0]
+						}
+					},
+					title: {
+						text: 'Watts',
+						style: {
+							color: Highcharts.getOptions().colors[0]
+						}
+					},
+					minRange: 0.1,
+					min: 0
+				}, {
+					labels:{
+						format: '{value}°F',
+						style: {
+							color: Highcharts.getOptions().colors[1]
+						}
+					},
+					title: {
+						text: 'Temp °F',
+						style: {
+							color: Highcharts.getOptions().colors[1]
+						}
+					},
+					minRange: 0.1,
+					min: 0,
+					opposite: true
+				}],
+				xAxis: {
+					type: "datetime",
+					name: "Time"
+				},
+				series: [{
+					name: 'Power Usage',
+					data: []
+				}, {
+					name: 'Outside Temperature',
+					yAxis: 1,
+					data:[]
+				}]
+			};
+			
+			var url='http://api.xively.com/v2/feeds/9511.json?&key=GtGuoMKJSqv2tzqGvWaITLhlEDUxrYXSixqPSmlyj-s&per_page=1000&datastreams=0,7&duration=6hours&interval=0';
+			var d=new Date();
+			// there's a bug in the Xively api, you HAVE to specify the end date
+			// or the data comes back wrong.
+			startpoint="&end=" + d.toISOString();
+			//alert ("I made " + startpoint);
+
+			// Set the global ajax config to synchronous 
+			// I have to do this to get the data before the chart is drawn.
+			$.ajaxSetup({
+				async: false
+			});
+			if(queryString["day"] == undefined)
+				var loopcount = 4; // grab it in 4 six hour chunks
+			else
+				loopcount = (queryString["day"] * 4);
+			
+			for ( var i=0; i<loopcount; i++ ){
+				$.getJSON(url+startpoint,  function(data) {
+					// get the data out of the response and put it in an array for charting
+					$.each(data.datastreams[0].datapoints, function(k,v){
+						options.series[0].data.push([Date.parse(v.at)-(7*60*60*1000),parseFloat(v.value)]);
+					});
+					$.each(data.datastreams[1].datapoints, function(k,v){
+						options.series[1].data.push([Date.parse(v.at)-(7*60*60*1000),parseFloat(v.value)]);
+					});
+					// In case I want to see the data array that will be charted during debugging
+					//console.log(JSON.stringify(options.series[0].data,null, 4));
+					// In case I want to show the JSON date received from the cloud
+					//console.log(JSON.stringify(data,null, 4));
+					startpoint = "&end=" + data.datastreams[0].datapoints[0].at;
+					//alert ("Set end point to: " + startpoint);
+				});
+			};
+			// In case I want to see the data array during debugging
+			//console.log(JSON.stringify(options.series[0].data,null, 4));
+			
+			// Now I have to sort the arrays by date
+			for ( var i=0; i<2; i++ ){
+				options.series[i].data.sort(function(a,b){
+					return(a[0]-b[0]);
+					})
+			};
+			// and finally show the chart
+			var chart = new Highcharts.Chart(options);
+		})
+	</script>
+</body>
+</html>

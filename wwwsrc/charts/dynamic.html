@@ -1,0 +1,127 @@
+<html>
+	<LINK REL="SHORTCUT ICON" HREF="/favicon.ico" />
+	<title>Desert Home Dynamic Graph</title>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<style>
+	body{background-color:rgb(240,255,255);}
+</style>
+</head>
+
+<body>
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8/jquery.min.js"></script>
+	<script type='text/javascript' src="http://code.highcharts.com/highcharts.js"></script>
+	
+	<!--The HighCharts chart goes in here-->
+	<div id='container' style='width:100%; height:310px;'> </div>
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$.ajaxSetup({
+				async: false
+			});
+			var tzoffset = (7*60*60*1000);
+
+			Highcharts.setOptions({
+				global: {
+					//useUTC: false
+				}
+			});
+		
+			var url='http://api.xively.com/v2/feeds/9511.json?&key=GtGuoMKJSqv2tzqGvWaITLhlEDUxrYXSixqPSmlyj-s&datastreams=0';
+			var chart;
+			$('#container').highcharts({
+				chart: {
+					type: 'spline',
+					animation: Highcharts.svg, // don't animate in old IE
+					marginRight: 10,
+					backgroundColor: 'rgb(240,255,255)',
+					borderColor: 'rgb(0,0,0)',
+					borderWidth: 2,
+					zoomType: 'x',
+					events: {
+						load: function() {
+		
+							// set up the updating of the chart each second
+							var series = this.series[0];
+							setInterval(function() {
+								var d=new Date();
+								var startpoint="&end=" + d.toISOString();
+								$.getJSON(url+startpoint, function(data) {
+									//console.log(JSON.stringify(data.datastreams[0],null, 4));
+									var y = parseFloat(data.datastreams[0].current_value);
+									var x = Date.parse(data.datastreams[0].at) - tzoffset;
+									console.log("y is " + data.datastreams[0].current_value + ' ' + y);
+									console.log("x is " + data.datastreams[0].at + ' ' + x);
+									series.addPoint([x,y], true, true, true);
+								});
+							}, 60000);
+						}
+					}
+				},
+				plotOptions: {
+					series: {
+						marker: {
+							radius: 2
+						}
+					}
+				},
+				title: {
+					text: 'Live Power Data'
+				},
+				subtitle:{
+					text: 'Dynamic Last Six Hours'
+				},
+				xAxis: {
+					type: 'datetime',
+					//tickPixelInterval: 150
+				},
+				yAxis: {
+					title: {
+						text: 'Watts'
+					},
+					plotLines: [{
+						value: 0,
+						width: 1,
+						color: '#808080'
+					}]
+				},
+				tooltip: {
+					formatter: function() {
+							return '<b>'+ this.series.name +'</b><br/>'+
+							Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
+							Highcharts.numberFormat(this.y, 2);
+					}
+				},
+				legend: {
+					enabled: false
+				},
+				exporting: {
+					enabled: false
+				},
+				series: [{
+					name: 'Power Usage',
+					data: (function() {
+						// generate an array of earlier data
+						var data = [];
+						var d=new Date();
+						var startpoint="&end=" + d.toISOString();
+						// go to cloud and get six hours of prior data
+						var urlextra = '&per_page=1000&datastreams=0,7&duration=6hours&interval=0' + startpoint;
+						$.getJSON(url + urlextra, function(values) {
+							//console.log(JSON.stringify(values,null, 4));
+							$.each(values.datastreams[0].datapoints, function(k,v){
+								data.push({
+									x: Date.parse(v.at) - tzoffset,
+									y: parseFloat(v.value)
+								});
+							});
+						});
+						//console.log(JSON.stringify(data,null, 4));
+						return data;
+					})()
+				}]
+			});
+		});
+	</script>
+</body>
+</html>
