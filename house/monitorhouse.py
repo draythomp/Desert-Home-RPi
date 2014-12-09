@@ -22,6 +22,7 @@ import Queue
 import sqlite3
 import sys
 import urllib2
+import BaseHTTPServer
 import sysv_ipc
 import shlex
 from houseutils import getHouseValues, lprint
