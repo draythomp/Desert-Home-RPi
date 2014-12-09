@@ -71,8 +71,8 @@ if (!$ipok && $passwd!=$secret){
 	echo "Quit messing around<br />";
 	die();
 }
-$Nthermo = "192.168.0.202";
-$Sthermo = "192.168.0.203"; 
+$Nthermo = json_decode($config,true)["Nthermostat"];
+$Sthermo = json_decode($config,true)["Sthermostat"]; 
 
 $deviceAction = $_REQUEST['command'];
 echo "Received device action: $deviceAction<br />";
