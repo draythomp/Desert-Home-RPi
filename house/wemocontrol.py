@@ -192,10 +192,13 @@ def updateDatabase(whichone, status, force=False):
     oldstatus = c.fetchone()
     if oldstatus[0] != status or force == True:
         lprint ("Had to update database %s, %s"%(whichone, status))
-        c.execute("update lights " 
-            "set status = ?, utime = ? where name = ?;",
-            (status, time.strftime("%A, %B, %d at %H:%M:%S"), whichone))
-        dbconn.commit()
+        try:
+            c.execute("update lights " 
+                "set status = ?, utime = ? where name = ?;",
+                (status, time.strftime("%A, %B, %d at %H:%M:%S"), whichone))
+            dbconn.commit()
+        except sqlite3.OperationalError:
+            lprint("Database is locked, record skipped")
     dbconn.close()
         
 # This is where the actual response goes out to the browser
