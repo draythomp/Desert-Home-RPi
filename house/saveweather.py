@@ -14,11 +14,11 @@ def recordInLog():
 #-------------------------------------------------  
 # get the values out of the houserc file
 hv = getHouseValues()
-
-#-------------------------------------------------
-# the database where I'm storing stuff
 DATABASE= hv["database"]
+
 buff = ''
+data = ""
+char = ""
 #-------------------------------------------------
 logging.basicConfig()
 #------------------If you want to schedule something to happen -----
@@ -31,7 +31,16 @@ scheditem.add_job(recordInLog, 'interval', minutes=30)
 recordInLog()
 while True:
     try:
-        buff += sys.stdin.read(1) #This is a blocking read
+        char = sys.stdin.read(1) #This is a blocking read
+        # you have no idea how hard it was to discover this.
+        # and end of file on a piped in input is a length of 
+        # zero.  There's about a thousand wrong answers out there
+        # and I never did find the right one.  Thank goodness
+        # for good old trial and error.
+        if len(char) == 0:
+            break # the pipe is gone, just exit the process
+        else:
+            buff += char;
         if buff.endswith('\n'):
             try:
                 data = json.loads(buff[:-1])
@@ -45,7 +54,9 @@ while True:
                 # sys.stdout.flush()
             except ValueError:
                 lprint("Input wasn't JSON");
-                lprint(data);
+                lprint(buff);
+                buff = ''
+                continue
             # For now just store the whole string in the database.
             dbconn = sqlite3.connect(DATABASE)
             c = dbconn.cursor()
@@ -61,7 +72,10 @@ while True:
             dbconn.close()
             buff = ''
 
-
     except KeyboardInterrupt:
-            sys.stdout.flush()
-            sys.exit()
+        lprint("Cntl-C from user");
+        break;
+        
+scheditem.shutdown(wait=False)
+sys.stdout.flush()
+sys.exit("Done")
