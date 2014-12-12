@@ -14,37 +14,17 @@ import sys
 import sysv_ipc
 from houseutils import lprint, getHouseValues
 
-#The Cqueue is for house commands and Lqueue is for light commands
-Cqueue = sysv_ipc.MessageQueue(12, sysv_ipc.IPC_CREAT,mode=0666)
-Lqueue = sysv_ipc.MessageQueue(13, sysv_ipc.IPC_CREAT,mode=0666)
-
-#--------Send the command via sysv message to the housemonitor
-def sendCommand(message, whichQueue=Cqueue):
-    try:
-        # type 1 messages are for testing, type 2 originate 
-        # from the web interface and type 3 originate here
-        whichQueue.send(message, block=False, type=3)
-    except sysv_ipc.BusyError:
-        # I have to think more about what to do with this.
-        lprint ("Busy error when sending command")
-        sys.stdout.flush()
-        
 #--------This is for the HTML interface 
 def openSite(Url):
     lprint (Url)
+    webHandle = None
     try:
         webHandle = urllib2.urlopen(Url, timeout=5) #if it doesn't answer in 5 seconds, it won't
     except urllib2.HTTPError, e:
         errorDesc = BaseHTTPServer.BaseHTTPRequestHandler.responses[e.code][0]
         print "Error: cannot retrieve URL: " + str(e.code) + ": " + errorDesc
-        raise
     except urllib2.URLError, e:
         print "Error: cannot retrieve URL: " + e.reason[1]
-        raise
-    except urllib2.HTTPError as e:
-        print e.code
-        print e.read()
-        raise
     except:  #I kept getting strange errors when I was first testing it
         e = sys.exc_info()[0]
         print ("Odd Error: %s" % e )
@@ -52,29 +32,24 @@ def openSite(Url):
     return webHandle
 
 def talkHTML(ip, command):
-    website = openSite("HTTP://" + ip + '/' + command)
-    # now read the status that came back from it
-    websiteHtml = website.read()
-    # After getting the status from the little web server on
-    # the arduino thermostat, strip off the trailing cr,lf
-    # and separate the values into a list that can
-    # be used to tell what is going on
-    return  websiteHtml
+    website = openSite("HTTP://" + ip + '/' + urllib2.quote(command, safe="%/:=&?~#+!$,;'@()*[]"))
+    # now (maybe) read the status that came back from it
+    if website is not None:
+        websiteHtml = website.read()
+        return  websiteHtml
 
 #-------These are the jobs that get scheduled----------------
 
 def outsideLightsOn():
     talkHTML(wemoController,"pCommand?command=OutsideLightsOn");
-    #sendCommand("OutsideLightsOn", Lqueue)
     lprint ("Turn on Outside Lights")
     
 def outsideLightsOff():
     talkHTML(wemoController,"pCommand?command=OutsideLightsOff");
-    #sendCommand("OutsideLightsOff", Lqueue)
     lprint ("Turn off Outside Lights")
 
 def acidPumpOn():
-    sendCommand("AcidPump pumpOn")
+    talkHTML(houseMonitor,"pCommand?command=AcidPump pumpOn");
     lprint ("Acid Pump on")
 
 def poolMotorOff(message=None):
@@ -85,7 +60,8 @@ def poolMotorOff(message=None):
         lprint(message)
     lprint ("Pool pump is currently: ", tmp)
     if (tmp == 'High' or tmp == 'Low'):
-        sendCommand("Pool pumpoff")
+        talkHTML(houseMonitor,"pCommand?command=Pool pumpoff");
+        #sendCommand("Pool pumpoff")
         lprint ("Pool Pump Off")
         #set a timer to come back here in a minute to be sure it goes off
         scheditem.add_job(poolMotorOff, 'date', 
@@ -101,20 +77,19 @@ def poolMotorOnHigh(message=None):
         lprint(message)
     lprint ("Pool pump is currently: ", tmp)
     if (tmp == 'Off' or tmp == 'Low'):
-        sendCommand("Pool pumphigh")
+        talkHTML(houseMonitor,"pCommand?command=Pool pumphigh");
         lprint ("Pool Pump On High")
-        #set a timer to come back here in a minute to be sure it goes off
         scheditem.add_job(poolMotorOnHigh, 'date', 
             run_date=datetime.now() + timedelta(minutes=1), 
             args=["Double Checking"])
     dbconn.close() # close the data base
 
 def fansRecirc():
-    sendCommand("preset recirc")
+    talkHTML(houseMonitor,"pCommand?command=preset recirc");
     lprint("A/C fans to recirc")
 
 def fansAuto():
-    sendCommand("preset auto")
+    talkHTML(houseMonitor,"pCommand?command=preset auto");
     lprint ("A/C fans to auto")
 
 def sendMail(subject, body):
@@ -138,21 +113,24 @@ def sendStatusMail():
     sendMail("Normal Status", "I'm alive");
     
 def testJob():
-    sendCommand("preset test")
-    lprint("Test command")
+    lprint("sending preset test command")
+    talkHTML(houseMonitor,"pCommand?command=preset test");
 
 # Attach to the message queue where commands can be sent to
 # the house monitor.
 
 logging.basicConfig()
 # Grab the values out of the rc file
-DATABASE=getHouseValues()["database"]
+hv = getHouseValues()
+DATABASE = hv["database"]
 lprint("Using database ", DATABASE);
-ipAddress=getHouseValues()["wemocontrol"]["ipAddress"]
-port = getHouseValues()["wemocontrol"]["port"]
-wemoController = ipAddress + ":" + str(port)
+wemoController = hv["wemocontrol"]["ipAddress"] + ":" + \
+                    str(hv["wemocontrol"]["port"])
 lprint("Wemo Controller is:", wemoController);
-mailPassword = getHouseValues()["mailpassword"]
+houseMonitor = hv["monitorhouse"]["ipAddress"] + ":" + \
+                    str(hv["monitorhouse"]["port"])
+lprint("House Monitor is:", houseMonitor);
+mailPassword = hv["mailpassword"]
 
 #------------------Stuff I schedule to happen -----
 scheditem = BackgroundScheduler()
@@ -183,9 +161,6 @@ scheditem.add_job(poolMotorOnHigh, 'cron', hour=19, minute=2,args=["Start pool m
 # Run the acid pump in the morning, every day
 # Acid pump shuts itself off automatically.
 scheditem.add_job(acidPumpOn, 'cron', hour=8, minute=0)
-# I run it twice experimentally to see how long I actually need to do it.
-#scheditem.add_job(acidPumpOn, 'cron', hour=8, minute=25)
-
 
 # This one is only to test the interaction between processes
 #scheditem.add_job(testJob, 'interval', seconds=15)
@@ -200,5 +175,9 @@ scheditem.start()
 lprint("started")
 
 while (1):
-    time.sleep(0.1)
-    sys.stdout.flush()
+    try:
+        time.sleep(0.1)
+        sys.stdout.flush()
+    except KeyboardInterrupt:
+        scheditem.shutdown(wait=False) # shut down the apscheduler
+        sys.exit("Told to shut down");
