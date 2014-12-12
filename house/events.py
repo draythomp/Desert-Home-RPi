@@ -93,18 +93,19 @@ def fansAuto():
     lprint ("A/C fans to auto")
 
 def sendMail(subject, body):
+    mailPassword = hv["mailpassword"]
 
     try:
         print subprocess.check_output(["sendEmail", 
-            "-f", "draythomp@gmail.com",
-            '-t', 'draythomp@gmail.com',
+            "-f", hv["emailaddr"],
+            '-t', hv["emailaddr"],
             '-u', subject,
             '-m', body,
             '-s', 'smtp.gmail.com:587',
             '-o',
             'tls=yes',
-            '-xu', 'draythomp',
-            '-xp', mailPassword], stderr=subprocess.STDOUT)
+            '-xu', hv["emailuser"],
+            '-xp', hv["mailpassword"]], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError, e:
         print e.output
         print e.cmd
@@ -130,7 +131,6 @@ lprint("Wemo Controller is:", wemoController);
 houseMonitor = hv["monitorhouse"]["ipAddress"] + ":" + \
                     str(hv["monitorhouse"]["port"])
 lprint("House Monitor is:", houseMonitor);
-mailPassword = hv["mailpassword"]
 
 #------------------Stuff I schedule to happen -----
 scheditem = BackgroundScheduler()
