@@ -1,17 +1,23 @@
 #! /usr/bin/python
-# This is the actual house Monitor Module
-#
-# I take the techniques tried in other modules and incorporate them
-# to gather data around the house and save it in a data base.  The
-# data base can be read for presentation in a web page and also  
-# forwarded for cloud storage and graphing. 
-#
-# For the XBee network, I fork off a new thread
-# to do the XBee receive.  This way, the main
-# code can go do something else and hand waiting
-# for the XBee messages to come in to another
-# process.
+'''
+This is the House Monitor Module
 
+It doesn't really do all the monitoring, it does capture data 
+from the XBee network of devices I have (not ZigBee, that's a 
+different module) and the two HTML thermostats I have and save
+it to my database.
+
+It has an extremely simple HTML interface that listens for commands, 
+decodes them and passes them on to the devices for action
+
+For the XBee network, I allow the library code to run asynchronously
+and put the messages on a queue to be handled by the main thread nin 
+turn.  This way, none are missed, and bursts of messages can be tamed 
+a bit.
+
+It also allows the main code to do other things during the dead periods
+
+'''
 from xbee import ZigBee 
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
@@ -24,7 +30,6 @@ import sqlite3
 import sys
 import urllib2
 import BaseHTTPServer
-import sysv_ipc
 import shlex
 import cherrypy
 
@@ -114,9 +119,12 @@ def ThermostatStatus():
                     whichOne))
         dbconn.commit()
     dbconn.close()
-
-# this is a call back function.  When a message
-# comes in this function will get the data
+'''
+this is a call back function for the XBee network.  When a message
+comes in this function will get the data and put it on a queue.
+That's literally all that the separate thread for the XBee library 
+does.  Sending and decoding the packets is handled by the main thread
+'''
 def message_received(data):
     packets.put(data, block=False)
     #print 'gotta packet' 
@@ -131,11 +139,12 @@ def sendPacket(where, what):
         # addresses for the device
         dest_addr = UNKNOWN,
         data = what)
-
-# OK, another thread has caught the packet from the XBee network,
-# put it on a queue, this process has taken it off the queue and 
-# passed it to this routine, now we can take it apart and see
-# what is going on ... whew!
+'''
+OK, another thread has caught the packet from the XBee network,
+put it on a queue, this process has taken it off the queue and 
+passed it to this routine, now we can take it apart and see
+what is going on ... whew!
+'''
 def handlePacket(data):
     global CurrentPower, DayMaxPower, DayMinPower
     global CurrentOutTemp, DayOutMaxTemp, DayOutMinTemp
@@ -336,7 +345,8 @@ def handlePacket(data):
 #-------------------------------------------------
 
 # This little status routine gets run by scheduler
-# periodically seconds
+# periodically to simply put a message in the log file.
+# This helps me keep track of what's going on.
 def printHouseData():
     lprint('Power Data: Current %s, Min %s, Max %s'
         %(int(float(CurrentPower)), int(float(DayMinPower)), int(float(DayMaxPower))))
@@ -344,21 +354,17 @@ def printHouseData():
         %(int(float(CurrentOutTemp)), int(float(DayOutMinTemp)), int(float(DayOutMaxTemp))))
     print
 
+
 def handleCommand(command):
-    # the command comes in from php as something like
-    # ('s:17:"AcidPump, pumpOff";', 2)
-    # so command[0] is 's:17:"AcidPump, pumpOff'
-    # then split it at the "  and take the second item
-    # inter language stuff is a real pain sometimes
     lprint(command)
-    try:
-        c = str(command[0].split('\"')[1]).split(',')
-    except IndexError:
-        c = str(command[0]).split(' ')    #this is for something I sent from another process
-    #print c
+    # Commands come in as something like 'Pool lighton'
+    c = str(command[0]).split(' ')
+    # now it's a list like ["Pool", "lighton"]
+    # which is really ['device', 'command']
+    # so separate the two and act on them.
+    #print repr(c)
     device = c[0]
     todo = c[1].strip(' ')
-    # now I have a list like ['device', 'command']
     if device == 'AcidPump':
         lprint ("AcidPump command", todo)
         if (todo == "pumpOn"):
@@ -422,6 +428,9 @@ def handleCommand(command):
             sendPacket(BROADCAST, "Garage,door2\r")
         else:
             lprint ("haven't done this yet")
+    # presets are what other folk call 'scenes'. Where you want
+    # several things to happen based on a single command.  Turn off 
+    # the lights, turn down the thermostat, lock the door, etc.
     elif device == "preset":
         if (todo == "test"): # This is only to test the interaction
             lprint ("got a preset test command")
@@ -467,7 +476,6 @@ def handleCommand(command):
         lprint ("command not implemented: ", str(c))
         
 def doComm():
-    global firstTime
     if packets.qsize() > 0:
         # got a packet from recv thread
         # See, the receive thread gets them
@@ -477,34 +485,12 @@ def doComm():
         # now go dismantle the packet
         # and use it.
         handlePacket(newPacket)
-    try:
-        if (firstTime):
-            while(True):
-                try:
-                    # commands could have piled up while this was 
-                    # not running.  Clear them out.
-                    junk = Cqueue.receive(block=False, type=0)
-                    lprint ("purging leftover commands", str(junk)) 
-                except sysv_ipc.BusyError:
-                    break
-            firstTime=False
-        newCommand = Cqueue.receive(block=False, type=0)
-        # type=0 above means suck every message off the
-        # queue.  If I used a number above that, I'd
-        # have to worry about the type in other ways.
-        # note, I'm reserving type 1 messages for 
-        # test messages I may send from time to 
-        # time.  Type 2 are messages that are
-        # sent by the php code in the web interface.
-        # Type 3 are from the event handler.
-        # I haven't decided on any others yet.
-        handleCommand(newCommand)
-    except sysv_ipc.BusyError:
-        pass # Only means there wasn't anything there
-# This is where the actual response goes out to the browser
-
-# First the process interface, it consists of a status report and
-# a command receiver.
+'''
+This is where the control interface for the tiny web server is 
+defined.  Each of these is a web 'page' that you get to with
+an HTTP get request.  Some have parameters, some don't.  Some
+hand back data, others don't.  Just think of the as web pages.
+'''
 class monitorhouseSC(object):
     
     @cherrypy.expose
@@ -521,14 +507,18 @@ class monitorhouseSC(object):
             %(int(float(CurrentOutTemp)), int(float(DayOutMinTemp)), int(float(DayOutMaxTemp))))
         status += "<br />"
         return status
-        
+'''
+This is necessary since I have multiple threads running out there 
+This function is subscribed to the 'exit' published by the CherryPy
+web server and will be called whenever the server is told to exit.
+'''      
 def gracefulEnd():
     lprint("****************************got to gracefulEnd")
-scheditem.shutdown(wait=False)
+    scheditem.shutdown(wait=False) # shut down the apscheduler
     # halt() must be called before closing the serial
     # port in order to ensure proper thread shutdown
     # for the xbee thread
-    zb.halt()
+    zb.halt() # shut down the XBee receive thread
     ser.close()
 
 #-----------------------------------------------------------------
@@ -545,8 +535,8 @@ ser = serial.Serial(XBEEPORT, XBEEBAUD_RATE)
 DATABASE = hv["database"]
 # Get the ip address and port number you want to use
 # from the houserc file
-ipAddress=getHouseValues()["monitorhouse"]["ipAddress"]
-port = getHouseValues()["monitorhouse"]["port"]
+ipAddress= hv["monitorhouse"]["ipAddress"]
+port = hv["monitorhouse"]["port"]
 
 # The XBee addresses I'm dealing with
 BROADCAST = '\x00\x00\x00\x00\x00\x00\xff\xff'
@@ -573,7 +563,6 @@ zb = ZigBee(ser, callback=message_received)
 # I just chose an identifier of 12.  It's my machine and I'm
 # the only one using it so all that crap about unique ids is
 # totally useless.  12 is the number of eggs in a normal carton.
-Cqueue = sysv_ipc.MessageQueue(12, sysv_ipc.IPC_CREAT,mode=0666)
 
 # a priming read for the thermostats
 ThermostatStatus()
@@ -597,7 +586,7 @@ cherrypy.config.update({'server.socket_host' : ipAddress,
                         })
 # Subscribe to the 'main' channel in cherrypy to read the command queue
 cherrypy.engine.subscribe("main", doComm);
-# This subscribe will catch the exit and shutdown the XBee
+# This subscribe will catch the exit then shutdown the XBee
 # read and the apscheduler for a nice exit.
 cherrypy.engine.subscribe("exit", gracefulEnd);
 
@@ -608,10 +597,6 @@ try:
     # are subscribed which will handle other things
     cherrypy.quickstart(monitorhouseSC())
 except KeyboardInterrupt:
-    print "******************Got here"
-    scheditem.shutdown(wait=False)
-    # halt() must be called before closing the serial
-    # port in order to ensure proper thread shutdown
-    zb.halt()
-    ser.close()
+    print "******************Got here from a user abort"
+    gracefulend()
     sys.exit("Told to shut down");

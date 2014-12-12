@@ -1,14 +1,17 @@
 #! /usr/bin/python
-# This is the an implementation of monitoring the Lowe's Iris Smart
-# Switch that I use.  It will join with a switch and does NOT allow you 
-# to control the switch
-#
-# This version has been adapted to support more than one switch and will 
-# add a new record to my database to hold the data.  Adapt it as you need 
-# to.
-#
-# Have fun
+'''
+This is the an implementation of monitoring the Lowe's Iris Smart
+Switchs that I use.  It will join with a switch and does NOT allow you 
+to control the switch.  This is because I use the switches to monitor 
+power usage of various items around the house.  It wouldn't do to allow 
+someone to turn off my freezer
 
+This version has been adapted to support more than one switch and will 
+add a new record to my database to hold the data.  Adapt it as you need 
+to.
+
+Have fun
+'''
 from xbee import ZigBee 
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
@@ -118,6 +121,9 @@ def messageReceived(data):
 		c = dbconn.cursor()
 		try:
 			# See if the device is already in the database
+            # if not, add a record with the name 'unknown',
+            # then go correct the name using the human interface
+            # to sqlite3
 			c.execute("select name from smartswitch "
 				"where longaddress = ?; ",
 				(addrToString(data['source_addr_long']),))
@@ -146,8 +152,6 @@ def messageReceived(data):
 			usage = ord(data['rf_data'][3]) + (ord(data['rf_data'][4]) * 256)
 			dbconn = sqlite3.connect(DATABASE)
 			c = dbconn.cursor()
-			# This is commented out because I don't need the name
-			# unless I'm debugging.
 			# get device name from database
 			try:
 				c.execute("select name from smartswitch "
@@ -239,7 +243,10 @@ def messageReceived(data):
 	else:
 		lprint ("Unimplemented Cluster ID", hex(clusterId))
 		print
-
+'''
+Someday, I may want to control these switches, so I have this code
+to do it with.
+'''
 def sendSwitch(whereLong, whereShort, srcEndpoint, destEndpoint, 
 				clusterId, profileId, clusterCmd, databytes):
 	
@@ -264,7 +271,7 @@ def sendSwitch(whereLong, whereShort, srcEndpoint, destEndpoint,
 		)
 # This just puts a time stamp in the log file for tracking
 def timeInLog():
-	lprint()
+	lprint("")
 	
 #-------------------------------------------------	
 # get the values out of the houserc file
