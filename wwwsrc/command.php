@@ -45,7 +45,7 @@ function controlThermostats($whichone,$command){
 
 function ipControl($whichOne,$command){
     echo "<br />";
-    echo "URL will be: $whichOne/$command";
+    echo "URL will be: $whichOne/$command<br />";
 	$response = file_get_contents("http://$whichOne/$command");
 	return(true);
 
@@ -71,9 +71,22 @@ if (!$ipok && $passwd!=$secret){
 	echo "Quit messing around<br />";
 	die();
 }
+/*
+    Suck the ip addresses for the various processes out 
+    of the json string I got from the .houserc file.
+    I put them here instead of each section to cut down on 
+    typing and bugs.
+*/
 $Nthermo = json_decode($config,true)["Nthermostat"];
-$Sthermo = json_decode($config,true)["Sthermostat"]; 
-
+$Sthermo = json_decode($config,true)["Sthermostat"];
+$houseMonitor = json_decode($config,true)['monitorhouse']['ipAddress'] .
+                ':' . (json_decode($config,true)['monitorhouse']['port']);
+$healthCheck = json_decode($config,true)['healthcheck']['ipAddress'] .
+                ':' . (json_decode($config,true)['healthcheck']['port']);
+$wemoControl = json_decode($config,true)['wemocontrol']['ipAddress'] .
+                ':' . (json_decode($config,true)['wemocontrol']['port']);
+                
+# get the command I'm going to work with from the URL
 $deviceAction = $_REQUEST['command'];
 echo "Received device action: $deviceAction<br />";
 
@@ -89,56 +102,30 @@ case "sthermo":
 	break;
 case "apump":
 	#echo "case got apump<br />";
-	#echo "command is $commandParts[1]<br />";
-	$mq = msg_get_queue(12);
-	$c = "AcidPump, $commandParts[1]";
-	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
-		echo "couldn't forward error: $msg_err<br />";
+	$c = "AcidPump%20$commandParts[1]";
+    ipControl("$houseMonitor", "pCommand?command=$c");
 	break;
 case "garage":
 	#echo "case got garage<br />";
-	#echo "command is $commandParts[1]<br />";
-	$mq = msg_get_queue(12);
-	$c = "Garage, $commandParts[1]";
-	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
-		echo "couldn't forward error: $msg_err<br />";
+	$c = "Garage%20$commandParts[1]";
+    ipControl("$houseMonitor", "pCommand?command=$c");
 	break;
 case "pool":
 	#echo "case got pool<br />";
-	#echo "command is $commandParts[1]<br />";
-	$mq = msg_get_queue(12);
-	$c = "Pool, $commandParts[1]";
-	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
-		echo "couldn't forward error: $msg_err<br />";
+	$c = "Pool%20$commandParts[1]";
+    ipControl("$houseMonitor", "pCommand?command=$c");
 	break;
 case "preset":
-	$mq = msg_get_queue(12);
-	$c = "preset, $commandParts[1]";
-	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
-		echo "couldn't forward error: $msg_err<br />";
+	$c = "preset%20$commandParts[1]";
+    ipControl("$houseMonitor", "pCommand?command=$c");
 	break;
 case "lights":
-    $wemoIp = json_decode($config,true)["wemocontrol"]["ipAddress"];
-    $wemoPort = json_decode($config,true)["wemocontrol"]["port"];
     $c = $commandParts[1];
-    ipControl("$wemoIp:$wemoPort", "pCommand?command=$c");
+    ipControl("$wemoControl", "pCommand?command=$c");
     break;
-/*  This is the old code that used the sys v message queue
-	$mq = msg_get_queue(13);
-	#echo "mq is $mq<br />";
-	$c = $commandParts[1];
-	#echo "command is $commandParts[1]<br />";
-	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
-		echo "couldn't forward, error: $msg_err<br />";
-	break;
-    */
 case "resetcommand":
-	$mq = msg_get_queue(14);
-	#echo "mq is $mq<br />";
-	$c = "reset, $commandParts[1]";
-	#echo "command is $c";
-	if ( !msg_send($mq, 2, $c, true, true, $msg_err))
-		echo "couldn't forward, error: $msg_err<br />";
+	$c = "reset%20$commandParts[1]";
+    ipControl("$healthCheck", "pCommand?command=$c");
 	break;
 default:
 	echo "defaulted, invalid device";
