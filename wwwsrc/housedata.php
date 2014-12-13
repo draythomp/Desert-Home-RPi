@@ -132,7 +132,8 @@ $giveback = array('power' => $power, 'outsidetemp'=>$outtemp,
 	'pm'=>$pm, 'pw'=>$pw, 'pl'=>$pl, 'pf'=>$pf, 'ps'=>$ps, 'pt'=>$pt,
 	'stl'=>$stl,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
-    'ws'=>$ws["windSpeed"]["WS"],'wd'=>$ws["windDirection"]["WD"] );
+    'ws'=>$ws["windSpeed"]["WS"],'wd'=>$ws["windDirection"]["WD"],
+    'hy'=>$ws["humidity"]["H"],'rtt'=>$ws["temperature"]["T"]);
 # And lastly, send it back to the web page
 echo json_encode($giveback);
 ?>

@@ -46,6 +46,8 @@ function gatherdata(){
             "ENE":67.5,"NE":45,"NNE":22.5,"N":0};
         winddGauge.setValueAnimated(direction[data.wd]);
         windsGauge.setValueAnimated(data.ws);
+        humidityGauge.setValueAnimated(data.hy);
+        wsTempGauge.setValueAnimated(data.rtt);
 		// The Wemo Light Switches
 		if (data.log=="On"){
 			$("#log").css("background-color","yellow");
@@ -231,17 +233,25 @@ function gatherdata(){
 		</td>
 	</tr>
 	<tr> <!-- This holds the SteelSeries gauges -->
-		<td style="vertical-align: center;">
+		<td style="text-align: center;">
 		<canvas id=clockCanvas width=200 height=300>No canvas in your browser...sorry...</canvas> 
 		<canvas id=powerCanvas width=200 height=300></canvas> 
 		<canvas id=tempCanvas width=200 height=300></canvas>
+        </td>
+    </tr>
+    <tr>
+		<td style="text-align: center;">
+        <strong>Weather Station</strong><br />
 		<canvas id=winddCanvas width=200 height=300></canvas>
 		<canvas id=windsCanvas width=200 height=300></canvas>
+		<canvas id=humidityCanvas width=200 height=300></canvas>
+		<canvas id=wsTempCanvas width=200 height=300></canvas>
+        <br />It's way up on the roof exposed to everything
 		</td>
 	</tr>
 	<tr> <!-- And these are the preset buttons -->
 		<td style="text-align: center;">
-		Presets<br />
+		<strong>Presets</strong><br />
 		<button style="background-color:lightgray" onClick="doit('preset','acoff')">A/C System Off</button>
 		<button style="background-color:lightgray" onClick="doit('preset','temp98')">Temp=98</button>
 		<button style="background-color:lightgray" onClick="doit('preset','recirc')">Fans Recirc</button>
@@ -255,7 +265,7 @@ function gatherdata(){
 	<tr> <!-- A place to put chart links -->
 		<td>
 		<center>
-		Charts and Graphs<br />
+		<strong>Charts and Graphs<strong><br />
 		<form>
 		<input type="button" style="background-color:lightgray" value="House Chart" onClick="parent.location='/charts/highpowertemp.html'">
 		<input type="button" style="background-color:lightgray" value="Dynamic Chart" onClick="parent.location='/charts/dynamic.html'">
@@ -271,7 +281,8 @@ function gatherdata(){
 	<tr> <!-- this is where the light status goes -->
 		<td>
 		<center>
-		Controlled Light Status (yellow is on)<br />
+		<strong>Controlled Light Status</strong><br />
+        (yellow is on)<br />
 		<input id=lfp type="button" style="background-color:lightgray" value="Front Porch" onClick="doit('lights','fPorchToggle')">
 		<input id=log type="button" style="background-color:lightgray" value="Outside Garage" onClick="doit('lights','garageToggle')">
 		<input id=lcs type="button" style="background-color:lightgray" value="Cactus Spot" onClick="doit('lights','cactusToggle')">
@@ -528,6 +539,40 @@ function gatherdata(){
             threshold: 10,
             lcdVisible: true
         });
+		humidityGauge = new steelseries.Radial('humidityCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			minValue:0,
+			maxValue:100,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE6,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			lcdDecimals: 0,
+			section: null,
+			area: null,
+			titleString: 'Humidity',
+			unitString: '%',
+			threshold: 50,
+			lcdVisible: true
+		});
+		wsTempGauge = new steelseries.Radial('wsTempCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			minValue:0,
+			maxValue:140,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE6,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			section: null,
+			lcdDecimals: 0,
+			area: null,
+			titleString: 'Roof Top Temp',
+			unitString: '°F',
+			threshold: 100,
+			lcdVisible: true
+		});
 	};
 </script>
 </body>
