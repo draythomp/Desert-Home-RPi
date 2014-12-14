@@ -219,9 +219,9 @@ if __name__ == '__main__':
     scheditem.start()
     
     # Now configure the cherrypy server using the values
-    cherrypy.config.update({'server.socket_host' : ipAddress,
+    cherrypy.config.update({'server.socket_host' : ipAddress.encode('ascii','ignore'),
                             'server.socket_port': port,
-                            'engine.autoreload_on': False,
+                            'engine.autoreload.on': False,
                             })
     # This subscribe will catch the exit and shutdown the apscheduler 
     # for a nice exit.

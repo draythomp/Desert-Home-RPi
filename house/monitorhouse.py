@@ -580,9 +580,9 @@ scheditem.start()
 firstTime = True;
 lprint ("Started")
 # Now configure the cherrypy server using the values
-cherrypy.config.update({'server.socket_host' : ipAddress,
+cherrypy.config.update({'server.socket_host' : ipAddress.encode('ascii','ignore'),
                         'server.socket_port': port,
-                        'engine.autoreload_on': False,
+                        'engine.autoreload.on': False,
                         })
 # Subscribe to the 'main' channel in cherrypy to read the command queue
 cherrypy.engine.subscribe("main", doComm);

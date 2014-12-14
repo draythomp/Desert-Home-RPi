@@ -341,9 +341,9 @@ if __name__ == "__main__":
     checkLightsTimer = timer(doLights, seconds=2)
     keepAliveTimer = timer(keepAlive, minutes=4)
     # Now configure the cherrypy server using the values
-    cherrypy.config.update({'server.socket_host' : ipAddress,
+    cherrypy.config.update({'server.socket_host' : ipAddress.encode('ascii','ignore'),
                             'server.socket_port': port,
-                            'engine.autoreload_on': False,
+                            'engine.autoreload.on': False,
                             })
     # Subscribe to the 'main' channel in cherrypy with my timer
     # tuck so the timers I use get updated
