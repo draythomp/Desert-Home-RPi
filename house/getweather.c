@@ -64,6 +64,8 @@ struct {
     time_t  hTime;
     int     rainCounter;
     time_t  rcTime;
+    float   barometer;
+    time_t  bTime;
 } weatherData;
 
 // This is just a function prototype for the compiler
@@ -106,17 +108,20 @@ uint8_t reportsSeen = 0;
 void showit(){
 
     // make sure enough reports have come in before reporting
-    if( reportsSeen >= 3){  // Change this when report 3 is decoded
+    if( reportsSeen >= 7){  // Change this when report 3 is decoded
         fprintf(stdout, "{\"windSpeed\":{\"WS\":\"%.1f\",\"t\":\"%d\"},"
                         "\"windDirection\":{\"WD\":\"%s\",\"t\":\"%d\"},"
                         "\"temperature\":{\"T\":\"%.1f\",\"t\":\"%d\"},"
                         "\"humidity\":{\"H\":\"%d\",\"t\":\"%d\"},"
-                        "\"rainCounter\":{\"RC\":\"%d\",\"t\":\"%d\"}}\n",
+                        "\"rainCounter\":{\"RC\":\"%d\",\"t\":\"%d\"},"
+                        "\"barometer\":{\"BP\":\"%4.1f\",\"t\":\"%d\"}}\n",
                 weatherData.windSpeed, weatherData.wsTime,
                 Direction[weatherData.windDirection],weatherData.wdTime,
                 weatherData.temperature, weatherData.tTime,
                 weatherData.humidity, weatherData.hTime,
-                weatherData.rainCounter, weatherData.rcTime);
+                weatherData.rainCounter, weatherData.rcTime,
+                weatherData.barometer, weatherData.bTime
+                );
         fflush(stdout);
     }
 }
@@ -156,7 +161,6 @@ void decode(char *data, int length, int noisy){
     //    fprintf(stderr,"%0.2X ",data[i]);
     //}
     //fprintf(stderr,"\n"); */
-    reportsSeen |= 0x04;  // just pretend I've seen report 2 already
     time_t seconds = time (NULL);
     //There are two varieties of data, both of them have wind speed
     // first variety of the data
@@ -175,7 +179,7 @@ void decode(char *data, int length, int noisy){
         }
         weatherData.rainCounter = getRainCount(data);
         weatherData.rcTime = seconds;
-        reportsSeen |= 0x01; //I've seen report 1 now
+        reportsSeen |= 0x01; //I've seen report 1 type 2 now
     }
     // this is the other variety
     if ((data[2] & 0x0f) == 8){ // this has wind speed, temp and relative humidity
@@ -193,7 +197,7 @@ void decode(char *data, int length, int noisy){
         }
         weatherData.humidity = getHumidity(data);
         weatherData.hTime = seconds;
-        reportsSeen |= 0x02;  // I've seen report 2 now
+        reportsSeen |= 0x02;  // I've seen report 1 type 2 now
 
     }
 }
@@ -247,6 +251,7 @@ void closeUpAndLeave(){
 
 // This is where I read the USB device to get the latest data.
 unsigned char data[50]; // where we want the data to go
+unsigned char oldR2[50] = "howdy";
 
 int getit(int whichOne, int noisy){
     int actual; // how many bytes were actually read
@@ -276,17 +281,39 @@ int getit(int whichOne, int noisy){
         //    fprintf(stderr,"%0.2X ",data[i]);
         //}
         //fprintf(stderr,"\n");
-        if (whichOne == 1)
+        if (whichOne == 1){
             // The actual data starts after the first byte
             // The first byte is the report number returned by 
             // the usb read.
             decode(&data[1], actual-1, noisy);
+        }
+        if (whichOne == 2){
+            if (actual == 25)
+            {
+                // Don't bother with it unless it changes
+                if (memcmp(oldR2, data, actual) != 0){
+                    memcpy(oldR2, data, actual);
+                    time_t seconds = time (NULL);
+                    FILE *logfile = fopen("/home/pi/logfile","a");
+                    int bar = oldR2[21] << 8 | oldR2[22];
+                    bar = bar - 36877;
+                    float adj = (float)bar/23.0;
+                    adj = 954.0 + adj;
+                    fprintf(logfile, "%0.2X %0.2X %d, %4.1f %d\n",
+                        oldR2[21], oldR2[22], oldR2[21] << 8 | oldR2[22], adj, seconds);
+                    weatherData.barometer = adj;
+                    weatherData.bTime = seconds;
+                    fclose(logfile);
+                    reportsSeen |= 0x04;  // I've seen report 2 now
+                }
+            }
+        }
     }
 }
-// I do several things here that aren't strictly necessary.  As I learned about
-// libusb, I tried things and also used various techniques to learn about the 
-// weatherstation's implementation.  I left a lot of it in here in case I needed to
-// use it later.  Someone may find it useful to hack into some other device.
+// Find the device, and set up to read it periodically, then send 
+// the data out stdout so another process can pick it up and do
+// something reasonable with it.
+// 
 int main(int argc, char **argv)
 {
     char *usage = {"usage: %s -u -n\n"};

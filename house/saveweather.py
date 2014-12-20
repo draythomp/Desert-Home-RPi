@@ -24,8 +24,8 @@ logging.basicConfig()
 #------------------If you want to schedule something to happen -----
 scheditem = BackgroundScheduler()
 scheditem.start()
-# someday this will set the rainfall amount back to zero at midnight
-#scheditem.add_job(resetRain, 'cron', hour=24, minute=0)
+# someday this will update parameters at midnight
+#scheditem.add_job(midnightReset, 'cron', hour=24, minute=0)
 scheditem.add_job(recordInLog, 'interval', minutes=30)
 
 recordInLog()
@@ -50,6 +50,7 @@ while True:
                 # print "and it is", data["temperature"]["T"], "degrees F Outside.",
                 # print "The humidity is", data["humidity"]["H"], "percent",
                 # print "and \nthe rain counter is", data["rainCounter"]["RC"],
+                # print "the barometer is at", data["barometer"]["BP"],
                 # print
                 # sys.stdout.flush()
             except ValueError:

@@ -48,6 +48,7 @@ function gatherdata(){
         windsGauge.setValueAnimated(data.ws);
         humidityGauge.setValueAnimated(data.hy);
         wsTempGauge.setValueAnimated(data.rtt);
+        barometerGauge.setValueAnimated(data.bp);
 		// The Wemo Light Switches
 		if (data.log=="On"){
 			$("#log").css("background-color","yellow");
@@ -246,6 +247,7 @@ function gatherdata(){
 		<canvas id=windsCanvas width=200 height=300></canvas>
 		<canvas id=humidityCanvas width=200 height=300></canvas>
 		<canvas id=wsTempCanvas width=200 height=300></canvas>
+		<canvas id=barometerCanvas width=200 height=300></canvas>
         <br />It's way up on the roof exposed to everything
 		</td>
 	</tr>
@@ -571,6 +573,23 @@ function gatherdata(){
 			titleString: 'Roof Top Temp',
 			unitString: '°F',
 			threshold: 100,
+			lcdVisible: true
+		});
+		barometerGauge = new steelseries.Radial('barometerCanvas', {
+			gaugeType: steelseries.GaugeType.TYPE4,
+			minValue:930,
+			maxValue:1070,
+			size: 200,
+			frameDesign: steelseries.FrameDesign.BRASS,
+			knobStyle: steelseries.KnobStyle.BRASS,
+			pointerType: steelseries.PointerType.TYPE6,
+			backgroundColor: steelseries.BackgroundColor.CARBON,
+			section: null,
+			lcdDecimals: 1,
+			area: null,
+			titleString: 'Barometric Pressure',
+			unitString: 'mbar',
+			threshold: 1000,
 			lcdVisible: true
 		});
 	};
