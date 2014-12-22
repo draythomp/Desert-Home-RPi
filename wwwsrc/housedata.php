@@ -109,6 +109,8 @@ $lp = timedQuerySingle(
 	'select "status" from "lights" where name="patio";');
 $ws = timedQuerySingle(
 	'select "json" from "weather";');
+$mb = timedQuerySingle(
+	'select "barometer" from "midnight";');
 $db->close();
 # The weather string is a pain, this is converting it, and
 # since I can reuse variables and I'm tired of thinking up names
@@ -134,7 +136,7 @@ $giveback = array('power' => $power, 'outsidetemp'=>$outtemp,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
     'ws'=>$ws["windSpeed"]["WS"],'wd'=>$ws["windDirection"]["WD"],
     'hy'=>$ws["humidity"]["H"],'rtt'=>$ws["temperature"]["T"],
-    'bp'=>$ws["barometer"]["BP"]);
+    'bp'=>$ws["barometer"]["BP"],'mb'=>$mb);
 # And lastly, send it back to the web page
 echo json_encode($giveback);
 ?>

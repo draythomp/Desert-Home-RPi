@@ -11,6 +11,35 @@ from houseutils import getHouseValues, lprint
 def recordInLog():
 	lprint(sys.argv[0]," Running")
 
+def midnightReset():
+    # Set midnight reading of the barometer in the database
+    # this will be the red indicator on the gauge
+    dbconn = sqlite3.connect(DATABASE)
+    c = dbconn.cursor()
+    while (1): # keep trying til it works
+        try: 
+            # First read the latest json string out of the database
+            c.execute("select json from weather;")
+            string = c.fetchone()
+            # now replace the backslashes 
+            string = string[0].replace("\\","")
+            # and remove the starting and ending quotes
+            string = string[1:-1]
+            # Now, decode the json string into a dictionary
+            data = json.loads(string)
+            # We can finally get the reading and save it in the database
+            c.execute("update midnight set 'barometer' = ?;",
+                (data["barometer"]["BP"],))
+            dbconn.commit()
+            break
+        except ValueError:
+            lprint("json string from db is invalid")
+            break
+        except sqlite3.OperationalError:
+            lprint("Database is locked, trying again")
+            time.sleep(1)
+    dbconn.close()
+    
 #-------------------------------------------------  
 # get the values out of the houserc file
 hv = getHouseValues()
@@ -23,10 +52,10 @@ char = ""
 logging.basicConfig()
 #------------------If you want to schedule something to happen -----
 scheditem = BackgroundScheduler()
-scheditem.start()
-# someday this will update parameters at midnight
-#scheditem.add_job(midnightReset, 'cron', hour=24, minute=0)
+# someday this will update multiple parameters at midnight
+scheditem.add_job(midnightReset, 'cron', hour=0, minute=0, second=15)
 scheditem.add_job(recordInLog, 'interval', minutes=30)
+scheditem.start()
 
 recordInLog()
 while True:
@@ -44,15 +73,15 @@ while True:
         if buff.endswith('\n'):
             try:
                 data = json.loads(buff[:-1])
-                # print "On", time.strftime("%A, %B, %d at %H:%M:%S",time.localtime(float(data["windSpeed"]["t"]))),
-                # print "the wind was blowing from the", data["windDirection"]["WD"],
-                # print "at\n", data["windSpeed"]["WS"], "mph,",
-                # print "and it is", data["temperature"]["T"], "degrees F Outside.",
-                # print "The humidity is", data["humidity"]["H"], "percent",
-                # print "and \nthe rain counter is", data["rainCounter"]["RC"],
-                # print "the barometer is at", data["barometer"]["BP"],
-                # print
-                # sys.stdout.flush()
+                #print "On", time.strftime("%A, %B, %d at %H:%M:%S",time.localtime(float(data["windSpeed"]["t"]))),
+                #print "the wind was blowing from the", data["windDirection"]["WD"],
+                #print "at\n", data["windSpeed"]["WS"], "mph,",
+                #print "and it is", data["temperature"]["T"], "degrees F Outside.",
+                #print "The humidity is", data["humidity"]["H"], "percent",
+                #print "and \nthe rain counter is", data["rainCounter"]["RC"],
+                #print "the barometer is at", data["barometer"]["BP"],
+                #print
+                #sys.stdout.flush()
             except ValueError:
                 lprint("Input wasn't JSON");
                 lprint(buff);
@@ -78,5 +107,6 @@ while True:
         break;
         
 scheditem.shutdown(wait=False)
+lprint(sys.argv[0],"Done")
 sys.stdout.flush()
-sys.exit("Done")
+sys.exit("")
