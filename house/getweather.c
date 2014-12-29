@@ -84,25 +84,25 @@ This tiny thing simply takes the data and prints it so we can see it
 */
 // Array to translate the integer direction provided to text
 char *Direction[] = {
-    "NNW",
-    "NW",
-    "WNW",
-    "W",
-    "WSW",
-    "SW",
-    "SSW",
-    "S",
-    "SSE",
-    "SE",
-    "ESE",
-    "E",
-    "ENE",
-    "NE",
-    "NNE",
-    "N"  };
+    "NW",  // 0
+    "WSW", // 1
+    "WNW", // 2
+    "W",   // 3
+    "NNW", // 4
+    "SW",  // 5
+    "N",   // 6
+    "SSW", // 7
+    "ENE", // 8
+    "SE",  // 9
+    "E",   // 10
+    "ESE", // 11
+    "NE",  // 12
+    "SSE", // 13
+    "NNE", // 14
+    "S"  };
+
 // this is a bitmapped byte to tell if the various styles of reports have
 // come in.  Bit 0 is R1 first type, bit 2 is R1 type 2 and bit 3 is R2
-// even though I don't use R2 yet
 uint8_t reportsSeen = 0;
 
 void showit(){
@@ -129,12 +129,13 @@ void showit(){
 This code translates the data from the 5 in 1 sensors to something 
 that can be used by a human.
 */
-float getWindSpeed(char *data){
+int getWindSpeed(char *data){
     int leftSide = (data[3] & 0x1f) << 3;
-    int rightSide = data[4] & 0x70 >> 4;
-    // Yes, I use mph, never got used to kilometers.
-    return((float)(leftSide | rightSide) * 0.62);
+    int rightSide = (data[4] & 0x70) >> 4;
+    float speed = (leftSide | rightSide) / 2.0;
+    return(speed);  
 }
+
 int getWindDirection(char *data){
     return(data[4] & 0x0f);
 }
