@@ -289,22 +289,21 @@ int getit(int whichOne, int noisy){
             decode(&data[1], actual-1, noisy);
         }
         if (whichOne == 2){
+        // This is an experiment that will probably get removed
+        // I'm trying to understand how the barometer on the 
+        // AcuRite console works.  
             if (actual == 25)
             {
                 // Don't bother with it unless it changes
                 if (memcmp(oldR2, data, actual) != 0){
                     memcpy(oldR2, data, actual);
                     time_t seconds = time (NULL);
-                    FILE *logfile = fopen("/home/pi/logfile","a");
                     int bar = oldR2[21] << 8 | oldR2[22];
                     bar = bar - 36877;
                     float adj = (float)bar/23.0;
                     adj = 954.0 + adj;
-                    fprintf(logfile, "%0.2X %0.2X %d, %4.1f %d\n",
-                        oldR2[21], oldR2[22], oldR2[21] << 8 | oldR2[22], adj, seconds);
                     weatherData.barometer = adj;
                     weatherData.bTime = seconds;
-                    fclose(logfile);
                     reportsSeen |= 0x04;  // I've seen report 2 now
                 }
             }

@@ -14,31 +14,26 @@ def recordInLog():
 def midnightReset():
     # Set midnight reading of the barometer in the database
     # this will be the red indicator on the gauge
+    # I'm not using the AcuRite for this, I'm using my own
+    # device out on the fence
+    lprint("Recording midnight items")
     dbconn = sqlite3.connect(DATABASE)
     c = dbconn.cursor()
     while (1): # keep trying til it works
         try: 
-            # First read the latest json string out of the database
-            c.execute("select json from weather;")
-            string = c.fetchone()
-            # now replace the backslashes 
-            string = string[0].replace("\\","")
-            # and remove the starting and ending quotes
-            string = string[1:-1]
-            # Now, decode the json string into a dictionary
-            data = json.loads(string)
-            # We can finally get the reading and save it in the database
+            # First read the latest reading from the database
+            c.execute("select pressure from barometer;")
+            pressure = c.fetchone()
+            # Save it in the database midnight record
             c.execute("update midnight set 'barometer' = ?;",
-                (data["barometer"]["BP"],))
+                pressure)
             dbconn.commit()
-            break
-        except ValueError:
-            lprint("json string from db is invalid")
             break
         except sqlite3.OperationalError:
             lprint("Database is locked, trying again")
             time.sleep(1)
     dbconn.close()
+    lprint("Finished midnight items");
     
 #-------------------------------------------------  
 # get the values out of the houserc file
@@ -60,8 +55,8 @@ scheditem.start()
 recordInLog()
 while True:
     try:
-        char = sys.stdin.read(1) #This is a blocking read
-        # you have no idea how hard it was to discover this.
+        char = sys.stdin.read(1) #This is a blocking read,
+        # (you have no idea how hard it was to discover this)
         # and end of file on a piped in input is a length of 
         # zero.  There's about a thousand wrong answers out there
         # and I never did find the right one.  Thank goodness
