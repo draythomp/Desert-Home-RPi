@@ -1,6 +1,26 @@
 import json
 import time
 import sys
+
+# I send the local time in seconds since the linux epoch
+# around the house to keep things in sync and control various
+# default timers on the devices.  This turns out to be a problem 
+# since linux expects time to be in UTC.  So, this routine returns
+# a formatted string to use when I update the database with a
+# time taken from one of the devices.
+#
+# The idea is that I want to be able to read various items without
+# spending time converting time zones or seconds from 1970.  It
+# helps a lot when trying to chase down a bug.  If seconds is not
+# specified, it will return the current time formated for the 
+# database.  Also, I got tired of keeping track of the time format.
+def dbTime(seconds=None):
+    if seconds is not None:
+        t = time.localtime(float(seconds) + time.timezone)
+    else:
+        t = time.localtime()
+    return time.strftime("%A, %B, %d at %H:%M:%S",t)
+
 # See http://www.desert-home.com/2014/10/using-rc-file-in-my-system.html
 # for a description of the .houserc file I use.
 def getHouseValues():
