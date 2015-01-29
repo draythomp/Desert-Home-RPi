@@ -28,7 +28,7 @@ def updateThingSpeak():
 	# so I'm simply going to put the values in variables instead of
 	# some complex (and probably faster) compound statement.
 	outsideTemp = c.execute(
-		"select currenttemp from xbeetemp").fetchone()[0]
+		"select temperature from Barometer").fetchone()[0]
 	# This a really cool thing about some languages
 	# the variable types are dynamic, so I can just change it
 	# from a string to a int on the fly.

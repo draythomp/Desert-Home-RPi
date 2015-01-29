@@ -121,7 +121,7 @@ processList = ["updatexively.py", "updateoldxively.py",
                 "events.py", "watchappliance.py","updateemon.py"]
 recordList = ["acidpump","emoncms", "garage", "grovestream", 
                 "oldxively", "pool", "power", "septic", "thermostats", 
-                "thingspeak", "xbeetemp", "xively", "smartswitch", "lights"]
+                "thingspeak", "Barometer", "xively", "smartswitch", "lights"]
 
 def monitorTheMonitor():
     #Check to see if all the processes are running

@@ -39,7 +39,7 @@ def updateXively():
 	feed.datastreams = [
         xively.Datastream(id='outside_temp', 
 			current_value = c.execute(
-				"select currenttemp from xbeetemp")
+				"select temperature from Barometer")
 				.fetchone()[0], 
 			at=now),
 		xively.Datastream(id='power_usage', 

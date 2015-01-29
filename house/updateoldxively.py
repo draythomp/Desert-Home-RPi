@@ -40,7 +40,7 @@ def updateXively():
 	feed.datastreams = [
        xively.Datastream(id='7', 
 			current_value = c.execute(
-				"select currenttemp from xbeetemp")
+				"select temperature from Barometer")
 				.fetchone()[0], 
 			at=now),
 		xively.Datastream(id='0', 

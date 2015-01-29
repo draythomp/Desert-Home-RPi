@@ -103,7 +103,7 @@ def updateGrovestreams():
 	stream2['data'] = []
 	comp['stream'].append(stream2)
 	current_value = c.execute(
-		"select currenttemp from xbeetemp").fetchone()[0]
+		"select temperature from Barometer").fetchone()[0]
 	stream2['time'].append(nowEpoch)
 	stream2['data'].append(float(current_value))
 

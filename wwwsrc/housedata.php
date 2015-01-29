@@ -52,7 +52,7 @@ $dbTimeout = json_decode($config,true)["databaseLockDelay"];
 # construction easier.  At least initially.
 #$power = $db->querySingle("select rpower from power;");
 $power = timedQuerySingle("select rpower from power;");
-$outtemp = timedQuerySingle("select currenttemp from xbeetemp;");
+$outtemp = timedQuerySingle('select "temperature" from "Barometer";');
 # Current status of the two thermostats
 $ntm = timedQuerySingle(
 	'select status from thermostats where location="North";');
@@ -109,6 +109,8 @@ $lp = timedQuerySingle(
 	'select "status" from "lights" where name="patio";');
 $ws = timedQuerySingle(
 	'select "json" from "weather";');
+$bp = timedQuerySingle(
+    'select "pressure" from "Barometer";');
 $mb = timedQuerySingle(
 	'select "barometer" from "midnight";');
 $db->close();
@@ -136,7 +138,7 @@ $giveback = array('power' => $power, 'outsidetemp'=>$outtemp,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
     'ws'=>$ws["windSpeed"]["WS"],'wd'=>$ws["windDirection"]["WD"],
     'hy'=>$ws["humidity"]["H"],'rtt'=>$ws["temperature"]["T"],
-    'bp'=>$ws["barometer"]["BP"],'mb'=>$mb);
+    'bp'=>$bp,'mb'=>$mb);
 # And lastly, send it back to the web page
 echo json_encode($giveback);
 ?>

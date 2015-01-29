@@ -32,8 +32,9 @@ import urllib2
 import BaseHTTPServer
 import shlex
 import cherrypy
+import json
 
-from houseutils import getHouseValues, lprint
+from houseutils import getHouseValues, lprint, dbTime
 
 # Global items that I want to keep track of
 CurrentPower = 0
@@ -115,7 +116,7 @@ def ThermostatStatus():
                     (status[0],status[1],
                     status[2],status[3],
                     status[4],status[5],
-                    time.strftime("%A, %B, %d at %H:%M:%S"),
+                    dbTime(),
                     whichOne))
         dbconn.commit()
     dbconn.close()
@@ -159,169 +160,198 @@ def handlePacket(data):
             print data['deliver_status'].encode('hex')
     # The receive packet is the workhorse, all the good stuff
     # happens with this packet.
-    elif data['id'] == 'rx': 
-        rxList = data['rf_data'].split(',')
-        
-        if rxList[0] == 'Status': #This is the status send by the old controller
-            # remember, it's sent as a string by the XBees
-            #print("Got Old Controller Status Packet")
-            tmp = int(rxList[1]) # index 1 is current power
-            if tmp > 0:  # Things can happen to cause this
-                # and I don't want to record a zero
-                CurrentPower = tmp
-                DayMaxPower = max(DayMaxPower,tmp)
-                DayMinPower = min(DayMinPower,tmp)
-                tmp = int(rxList[3]) # index 3 is outside temp
-                CurrentOutTemp = tmp
-                DayOutMaxTemp = max(DayOutMaxTemp, tmp) 
-                DayOutMinTemp = min(DayOutMinTemp, tmp)
+    elif data['id'] == 'rx':
+        # First, try for the new JSON format from the
+        # device.  I'm converting them one at a time
+        # to send JSON strings to the house controller
+        try:
+            jData = json.loads(data['rf_data'][:-1])
+            # Get the time sent with the readings and 
+            # adjust it since I send local time around the house
+            # for ease of conversion on the Arduinos
+            lprint ("Barometric Pressure is", jData['Barometer']['pressure'],
+                    "Temperature is", jData['Barometer']['temperature'],
+                     "Recorded Time is", jData['Barometer']['utime'],
+                     "Which should be converted to",dbTime(jData['Barometer']['utime'])) 
+            # do database stuff
+            dbconn = sqlite3.connect(DATABASE)
+            c = dbconn.cursor()
+            c.execute("update barometer " 
+                "set pressure = ?, "
+                "temperature = ?,"
+                "utime = ?;",
+                (jData['Barometer']['pressure'],
+                jData['Barometer']['temperature'],
+                dbTime(jData['Barometer']['utime']), 
+                    ))
+            dbconn.commit()
+            dbconn.close()
+        except KeyError:
+            lprint("KeyError doing json decode")
+            return
+        except ValueError: # Old style Data received
+            rxList = data['rf_data'].split(',')
+            
+            if rxList[0] == 'Status': #This is the status send by the old controller
+                # remember, it's sent as a string by the XBees
+                #print("Got Old Controller Status Packet")
+                tmp = int(rxList[1]) # index 1 is current power
+                if tmp > 0:  # Things can happen to cause this
+                    # and I don't want to record a zero
+                    CurrentPower = tmp
+                    DayMaxPower = max(DayMaxPower,tmp)
+                    DayMinPower = min(DayMinPower,tmp)
+                    tmp = int(rxList[3]) # index 3 is outside temp
+                    CurrentOutTemp = tmp
+                    DayOutMaxTemp = max(DayOutMaxTemp, tmp) 
+                    DayOutMinTemp = min(DayOutMinTemp, tmp)
+                    dbconn = sqlite3.connect(DATABASE)
+                    c = dbconn.cursor()
+                    # do database stuff
+                    c.execute("update housestatus " 
+                        "set curentpower = ?, "
+                        "daymaxpower = ?,"
+                        "dayminpower = ?,"
+                        "currentouttemp = ?,"
+                        "dayoutmaxtemp = ?,"
+                        "dayoutmintemp = ?,"
+                        "utime = ?;",
+                        (CurrentPower, DayMaxPower, DayMinPower,
+                        CurrentOutTemp, DayOutMaxTemp,
+                        DayOutMinTemp,
+                        dbTime()))
+                    dbconn.commit()
+                    dbconn.close()
+            elif rxList[0] == 'AcidPump':
+                # This is the Acid Pump Status packet
+                # it has 'AcidPump,time_t,status,level,#times_sent_message
+                # I only want to save status, level, and the last
+                # time it reported in to the database for now
+                #print("Got Acid Pump Packet")
                 dbconn = sqlite3.connect(DATABASE)
                 c = dbconn.cursor()
-                # do database stuff
-                c.execute("update housestatus " 
-                    "set curentpower = ?, "
-                    "daymaxpower = ?,"
-                    "dayminpower = ?,"
-                    "currentouttemp = ?,"
-                    "dayoutmaxtemp = ?,"
-                    "dayoutmintemp = ?,"
+                c.execute("update acidpump set status = ?, "
+                    "'level' = ?,"
                     "utime = ?;",
-                    (CurrentPower, DayMaxPower, DayMinPower,
-                    CurrentOutTemp, DayOutMaxTemp,
-                    DayOutMinTemp,
-                    time.strftime("%A, %B, %d at %H:%M:%S")))
+                    (rxList[2], rxList[3],
+                    dbTime()))
                 dbconn.commit()
                 dbconn.close()
-        elif rxList[0] == 'AcidPump':
-            # This is the Acid Pump Status packet
-            # it has 'AcidPump,time_t,status,level,#times_sent_message
-            # I only want to save status, level, and the last
-            # time it reported in to the database for now
-            #print("Got Acid Pump Packet")
-            dbconn = sqlite3.connect(DATABASE)
-            c = dbconn.cursor()
-            c.execute("update acidpump set status = ?, "
-                "'level' = ?,"
-                "utime = ?;",
-                (rxList[2], rxList[3],
-                time.strftime("%A, %B, %d at %H:%M:%S")))
-            dbconn.commit()
-            dbconn.close()
-        elif rxList[0] == '?\r': #incoming request for a house status message
-            # Status message that is broadcast to all devices consists of:
-            # power,time_t,outsidetemp,insidetemp,poolmotor  ---more to come someday
-            # all fields are ascii with poolmotor being {Low,High,Off}
-            #print("Got Status Request Packet")
-            dbconn = sqlite3.connect(DATABASE)
-            c = dbconn.cursor()
-            spower = int(float(c.execute("select rpower from power").fetchone()[0]))
-            stime = int((time.time() - (7*3600)))
-            sotemp = int(c.execute("select currenttemp from xbeetemp").fetchone()[0])
-            sitemp = int(c.execute("select avg(\"temp-reading\") from thermostats").fetchone()[0])
-            spoolm = c.execute("select motor from pool").fetchone()[0]
-            dbconn.close()
-            sstring = "Status,%d,%d,%d,%d,%s\r" %(spower,stime,sotemp,sitemp,spoolm)
-            #print sstring.encode('ascii','ignore') #for debugging
-            sendPacket(BROADCAST, sstring.encode('ascii','ignore'))
-        elif rxList[0] == 'Time':
-            #print("Got Time Packet")
-            pass
-        elif rxList[0] == 'Garage':
-            #print("Got Garage Packet")
-            #print(rxList)
-            if len(rxList) > 2: #this means it's a status from the garage
-                                # not a command to the garage
-                #print "updating garage in database"
-                # Now stick it in the database
+            elif rxList[0] == '?\r': #incoming request for a house status message
+                # Status message that is broadcast to all devices consists of:
+                # power,time_t,outsidetemp,insidetemp,poolmotor  ---more to come someday
+                # all fields are ascii with poolmotor being {Low,High,Off}
+                #print("Got Status Request Packet")
                 dbconn = sqlite3.connect(DATABASE)
                 c = dbconn.cursor()
-                c.execute("update garage set door1 = ?, "
-                    "door2 = ?,"
-                    "waterh = ?,"
+                spower = int(float(c.execute("select rpower from power").fetchone()[0]))
+                stime = int((time.time() - (7*3600)))
+                sotemp = int(c.execute("select currenttemp from xbeetemp").fetchone()[0])
+                sitemp = int(c.execute("select avg(\"temp-reading\") from thermostats").fetchone()[0])
+                spoolm = c.execute("select motor from pool").fetchone()[0]
+                dbconn.close()
+                sstring = "Status,%d,%d,%d,%d,%s\r" %(spower,stime,sotemp,sitemp,spoolm)
+                #print sstring.encode('ascii','ignore') #for debugging
+                sendPacket(BROADCAST, sstring.encode('ascii','ignore'))
+            elif rxList[0] == 'Time':
+                #print("Got Time Packet")
+                pass
+            elif rxList[0] == 'Garage':
+                #print("Got Garage Packet")
+                #print(rxList)
+                if len(rxList) > 2: #this means it's a status from the garage
+                                    # not a command to the garage
+                    #print "updating garage in database"
+                    # Now stick it in the database
+                    dbconn = sqlite3.connect(DATABASE)
+                    c = dbconn.cursor()
+                    c.execute("update garage set door1 = ?, "
+                        "door2 = ?,"
+                        "waterh = ?,"
+                        "utime = ?;",
+                        (rxList[1], rxList[2],rxList[3].rstrip(),
+                        dbTime()))
+                    dbconn.commit()
+                    dbconn.close()
+            elif rxList[0] == 'Pool':
+                #print("Got Pool Packet")
+                #print(rxList)
+                motor = rxList[1].split(' ')[1]
+                waterfall = rxList[2].split(' ')[1]
+                light = rxList[3].split(' ')[1]
+                fountain = rxList[4].split(' ')[1]
+                solar = rxList[5].split(' ')[1]
+                ptemp = rxList[6].split(' ')[1]
+                atemp = rxList[7].split(' ')[1]
+                dbconn = sqlite3.connect(DATABASE)
+                c = dbconn.cursor()
+                c.execute("update pool set motor = ?, "
+                    "waterfall = ?,"
+                    "light = ?,"
+                    "fountain = ?,"
+                    "solar = ?,"
+                    "ptemp = ?,"
+                    "atemp = ?,"
                     "utime = ?;",
-                    (rxList[1], rxList[2],rxList[3].rstrip(),
-                    time.strftime("%A, %B, %d at %H:%M:%S")))
+                    (motor, waterfall, light, fountain, 
+                    solar, ptemp, atemp,
+                    dbTime()))
                 dbconn.commit()
                 dbconn.close()
-        elif rxList[0] == 'Pool':
-            #print("Got Pool Packet")
-            #print(rxList)
-            motor = rxList[1].split(' ')[1]
-            waterfall = rxList[2].split(' ')[1]
-            light = rxList[3].split(' ')[1]
-            fountain = rxList[4].split(' ')[1]
-            solar = rxList[5].split(' ')[1]
-            ptemp = rxList[6].split(' ')[1]
-            atemp = rxList[7].split(' ')[1]
-            dbconn = sqlite3.connect(DATABASE)
-            c = dbconn.cursor()
-            c.execute("update pool set motor = ?, "
-                "waterfall = ?,"
-                "light = ?,"
-                "fountain = ?,"
-                "solar = ?,"
-                "ptemp = ?,"
-                "atemp = ?,"
-                "utime = ?;",
-                (motor, waterfall, light, fountain, 
-                solar, ptemp, atemp,
-                time.strftime("%A, %B, %d at %H:%M:%S")))
-            dbconn.commit()
-            dbconn.close()
-        elif rxList[0] == 'Power':
-            #print("Got Power Packet")
-            #print(rxList)
-            # I didn't really need to put these into variables, 
-            # I could have used the strings directly, but when
-            # I came back in a year or two to this code, I 
-            # wouldn't have a clue what was going on.  By 
-            # putting them in variables (less efficient), I 
-            # make my life easier in the future.
-            rpower = float(rxList[1])
-            CurrentPower = rpower
-            DayMaxPower = max(DayMaxPower,CurrentPower)
-            DayMinPower = min(DayMinPower,CurrentPower)
-            apower = float(rxList[2])
-            pfactor = float(rxList[3])
-            voltage = float(rxList[4])
-            current = float(rxList[5])
-            frequency = float(rxList[6].rstrip())
-            #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
-            #   %(rpower, apower, pfactor, voltage, current, frequency))
-            try:
+            elif rxList[0] == 'Power':
+                #print("Got Power Packet")
+                #print(rxList)
+                # I didn't really need to put these into variables, 
+                # I could have used the strings directly, but when
+                # I came back in a year or two to this code, I 
+                # wouldn't have a clue what was going on.  By 
+                # putting them in variables (less efficient), I 
+                # make my life easier in the future.
+                rpower = float(rxList[1])
+                CurrentPower = rpower
+                DayMaxPower = max(DayMaxPower,CurrentPower)
+                DayMinPower = min(DayMinPower,CurrentPower)
+                apower = float(rxList[2])
+                pfactor = float(rxList[3])
+                voltage = float(rxList[4])
+                current = float(rxList[5])
+                frequency = float(rxList[6].rstrip())
+                #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
+                #   %(rpower, apower, pfactor, voltage, current, frequency))
+                try:
+                    dbconn = sqlite3.connect(DATABASE)
+                    c = dbconn.cursor()
+                    c.execute("update power set rpower = ?, "
+                        "apower = ?,"
+                        "pfactor = ?,"
+                        "voltage = ?,"
+                        "current = ?,"
+                        "frequency = ?,"
+                        "utime = ?;",
+                        (rpower, apower, pfactor, voltage, current, 
+                        frequency, dbTime()))
+                    dbconn.commit()
+                except:
+                    print "Error: Database error"
+                dbconn.close()
+            elif rxList[0] == 'Septic':
+                #print("Got Septic Packet")
+                #print(rxList)
                 dbconn = sqlite3.connect(DATABASE)
                 c = dbconn.cursor()
-                c.execute("update power set rpower = ?, "
-                    "apower = ?,"
-                    "pfactor = ?,"
-                    "voltage = ?,"
-                    "current = ?,"
-                    "frequency = ?,"
-                    "utime = ?;",
-                    (rpower, apower, pfactor, voltage, current, 
-                    frequency, time.strftime("%A, %B, %d at %H:%M:%S")))
+                c.execute("update septic set level = ?, utime = ?;",
+                    (rxList[1].rstrip(), dbTime()))
                 dbconn.commit()
-            except:
-                print "Error: Database error"
-            dbconn.close()
-        elif rxList[0] == 'Septic':
-            #print("Got Septic Packet")
-            #print(rxList)
-            dbconn = sqlite3.connect(DATABASE)
-            c = dbconn.cursor()
-            c.execute("update septic set level = ?, utime = ?;",
-                (rxList[1].rstrip(), time.strftime("%A, %B, %d at %H:%M:%S")))
-            dbconn.commit()
-            dbconn.close()
-        elif rxList[0] == 'Freezer':
-            pass
-            #lprint ("Got a Freezer Packet", rxList)
-        else:
-            print ("Error: can\'t handle " + rxList[0] + ' yet')
-            for item in rxList:
-                print item,
-            print
-            pass
+                dbconn.close()
+            elif rxList[0] == 'Freezer':
+                pass
+                #lprint ("Got a Freezer Packet", rxList)
+            else:
+                print ("Error: can\'t handle " + rxList[0] + ' yet')
+                for item in rxList:
+                    print item,
+                print
+                pass
     elif data['id'] == 'rx_io_data_long_addr':
         #print ('Got Outside Thermometer Packet')
         tmp = data['samples'][0]['adc-1']
@@ -336,7 +366,7 @@ def handlePacket(data):
         c.execute("update xbeetemp set 'currenttemp' = ?, "
             "utime = ?;",
             (int(otemp),
-            time.strftime("%A, %B, %d at %H:%M:%S")))
+            dbTime()))
         dbconn.commit()
         dbconn.close()
     else:
@@ -489,7 +519,7 @@ def doComm():
 This is where the control interface for the tiny web server is 
 defined.  Each of these is a web 'page' that you get to with
 an HTTP get request.  Some have parameters, some don't.  Some
-hand back data, others don't.  Just think of the as web pages.
+hand back data, others don't.  Just think of them as web pages.
 '''
 class monitorhouseSC(object):
     
