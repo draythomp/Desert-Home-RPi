@@ -44,7 +44,10 @@ function gatherdata(){
             "WSW":247.5,"SW":225,"SSW":202.5,"S":180,
             "SSE":157.5,"SE":135,"ESE":112.5,"E":90,
             "ENE":67.5,"NE":45,"NNE":22.5,"N":0};
-        winddGauge.setValueAnimated(direction[data.wd]);
+        if (winddGauge.getValueLatest() != direction[data.wd]){
+            winddGauge.setValueAnimatedAverage(winddGauge.getValueLatest());
+            }
+        winddGauge.setValueAnimatedLatest(direction[data.wd]);
         windsGauge.setValueAnimated(data.ws);
         humidityGauge.setValueAnimated(data.hy);
         wsTempGauge.setValueAnimated(data.rtt);
@@ -520,12 +523,15 @@ function gatherdata(){
             section: null,
             area: null
         });
-        winddGauge = new steelseries.Compass('winddCanvas', {
-            gaugeType: steelseries.GaugeType.TYPE4,
+        <!--winddGauge = new steelseries.Compass('winddCanvas', { -->
+         winddGauge = new steelseries.WindDirection('winddCanvas', {
+            <!--gaugeType: steelseries.GaugeType.TYPE4,-->
             size: 200,
             frameDesign: steelseries.FrameDesign.BRASS,
             knobStyle: steelseries.KnobStyle.BRASS,
-            pointerType: steelseries.PointerType.TYPE1,
+            pointerTypeLatest: steelseries.PointerType.TYPE6,
+            pointerTypeAverage: steelseries.PointerType.TYPE6,
+            lcdTitleStrings: ['Latest', 'Previous'],
             backgroundColor: steelseries.BackgroundColor.CARBON,
             section: null,
             area: null
@@ -538,6 +544,8 @@ function gatherdata(){
             titleString: 'Wind Speed',
             unitString: 'MPH',
             frameDesign: steelseries.FrameDesign.BRASS,
+            knobStyle: steelseries.KnobStyle.BRASS,
+            pointerType: steelseries.PointerType.TYPE6,
             backgroundColor: steelseries.BackgroundColor.CARBON,
             threshold: 10,
             lcdVisible: true
