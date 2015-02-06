@@ -84,22 +84,22 @@ This tiny thing simply takes the data and prints it so we can see it
 */
 // Array to translate the integer direction provided to text
 char *Direction[] = {
-    "NW",  // 0
-    "WSW", // 1
-    "WNW", // 2
-    "W",   // 3
-    "NNW", // 4
-    "SW",  // 5
-    "N",   // 6
-    "SSW", // 7
-    "ENE", // 8
-    "SE",  // 9
-    "E",   // 10
-    "ESE", // 11
-    "NE",  // 12
-    "SSE", // 13
-    "NNE", // 14
-    "S"  };
+    "NW",  // 0   315
+    "WSW", // 1   247.5
+    "WNW", // 2   292.5
+    "W",   // 3   270
+    "NNW", // 4   337.5
+    "SW",  // 5   225
+    "N",   // 6   0
+    "SSW", // 7   202.5
+    "ENE", // 8   67.5
+    "SE",  // 9   135
+    "E",   // 10  90
+    "ESE", // 11  112.5
+    "NE",  // 12  45
+    "SSE", // 13  157.5
+    "NNE", // 14  22.5
+    "S"  };// 15  180
 
 // this is a bitmapped byte to tell if the various styles of reports have
 // come in.  Bit 0 is R1 first type, bit 2 is R1 type 2 and bit 3 is R2
@@ -151,7 +151,10 @@ int getHumidity(char *data){
     return(howWet);
 }
 int getRainCount(char *data){
-    int count = data[6] &0x7f;
+
+    int leftSide = (data[5] & 0x3F) << 7 ;
+    int rightSide = data[6] & 0x7F;
+    int count = leftSide | rightSide;
     return(count);
 }
 // Now that I have the data from the station, do something useful with it.
