@@ -166,28 +166,36 @@ def handlePacket(data):
         # to send JSON strings to the house controller
         try:
             jData = json.loads(data['rf_data'][:-1])
-            # Get the time sent with the readings and 
-            # adjust it since I send local time around the house
-            # for ease of conversion on the Arduinos
-            lprint ("Barometric Pressure is", jData['Barometer']['pressure'],
-                    "Temperature is", jData['Barometer']['temperature'],
-                     "Recorded Time is", jData['Barometer']['utime'],
-                     "Which should be converted to",dbTime(jData['Barometer']['utime'])) 
-            # do database stuff
-            dbconn = sqlite3.connect(DATABASE)
-            c = dbconn.cursor()
-            c.execute("update barometer " 
-                "set pressure = ?, "
-                "temperature = ?,"
-                "utime = ?;",
-                (jData['Barometer']['pressure'],
-                jData['Barometer']['temperature'],
-                dbTime(jData['Barometer']['utime']), 
-                    ))
-            dbconn.commit()
-            dbconn.close()
+            if "Temp1" in jData.keys():
+                print jData
+                print jData.keys()
+                print type(jData.keys())
+                print jData[jData.keys()[0]].keys()
+            if "Barometer" in  jData.keys():
+                print jData
+                # Get the time sent with the readings and 
+                # adjust it since I send local time around the house
+                # for ease of conversion on the Arduinos
+                #lprint ("Barometric Pressure is", jData['Barometer']['pressure'],
+                #        "Temperature is", jData['Barometer']['temperature'],
+                #         "Recorded Time is", jData['Barometer']['utime'],
+                #         "Which should be converted to",dbTime(jData['Barometer']['utime'])) 
+                # do database stuff
+                dbconn = sqlite3.connect(DATABASE)
+                c = dbconn.cursor()
+                c.execute("update barometer " 
+                    "set pressure = ?, "
+                    "temperature = ?,"
+                    "utime = ?;",
+                    (jData['Barometer']['pressure'],
+                    jData['Barometer']['temperature'],
+                    dbTime(jData['Barometer']['utime']), 
+                        ))
+                dbconn.commit()
+                dbconn.close()
         except KeyError:
             lprint("KeyError doing json decode")
+            lprint(jData)
             return
         except ValueError: # Old style Data received
             rxList = data['rf_data'].split(',')

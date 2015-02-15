@@ -301,11 +301,10 @@ int getit(int whichOne, int noisy){
                 if (memcmp(oldR2, data, actual) != 0){
                     memcpy(oldR2, data, actual);
                     time_t seconds = time (NULL);
-                    int bar = oldR2[21] << 8 | oldR2[22];
-                    bar = bar - 36877;
-                    float adj = (float)bar/23.0;
-                    adj = 954.0 + adj;
-                    weatherData.barometer = adj;
+                    
+                    float bar = 6.23 * (oldR2[23] << 8 | oldR2[24]) - 20402;
+                    weatherData.barometer = bar / 100; // convert to mbar from pascals
+                    weatherData.barometer += 81.1; //adjust for altitude
                     weatherData.bTime = seconds;
                     reportsSeen |= 0x04;  // I've seen report 2 now
                 }

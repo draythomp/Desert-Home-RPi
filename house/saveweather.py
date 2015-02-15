@@ -34,7 +34,6 @@ def midnightReset():
             time.sleep(1)
     dbconn.close()
     lprint("Finished midnight items");
-    
 #-------------------------------------------------  
 # get the values out of the houserc file
 hv = getHouseValues()
