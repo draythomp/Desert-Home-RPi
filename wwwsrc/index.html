@@ -44,15 +44,27 @@ function gatherdata(){
             "WSW":247.5,"SW":225,"SSW":202.5,"S":180,
             "SSE":157.5,"SE":135,"ESE":112.5,"E":90,
             "ENE":67.5,"NE":45,"NNE":22.5,"N":0};
-        if (winddGauge.getValueLatest() != direction[data.wd]){
-            winddGauge.setValueAnimatedAverage(winddGauge.getValueLatest());
-            }
-        winddGauge.setValueAnimatedLatest(direction[data.wd]);
-        windsGauge.setValueAnimated(data.ws);
-        humidityGauge.setValueAnimated(data.hy);
-        wsTempGauge.setValueAnimated(data.rtt);
-        barometerGauge.setValueAnimated(data.bp);
-        barometerGauge.setThreshold(data.mb);
+        if (data.wd in direction){
+            if (winddGauge.getValueLatest() != direction[data.wd]){
+                winddGauge.setValueAnimatedAverage(winddGauge.getValueLatest());
+                }
+            winddGauge.setValueAnimatedLatest(direction[data.wd]);
+        }
+        if (isNumber(data.ws)){
+            windsGauge.setValueAnimated(data.ws);
+        }
+        if (isNumber(data.hy)){
+            humidityGauge.setValueAnimated(data.hy);
+        }
+        if (isNumber(data.rtt)){
+            wsTempGauge.setValueAnimated(data.rtt);
+        }
+        if (isNumber(data.bp)){
+            barometerGauge.setValueAnimated(data.bp);
+        }
+        if (isNumber(data.mb)){
+            barometerGauge.setThreshold(data.mb);
+        }
         // The Wemo Light Switches
         if (data.log=="On"){
             $("#log").css("background-color","yellow");

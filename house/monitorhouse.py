@@ -168,9 +168,9 @@ def handlePacket(data):
             jData = json.loads(data['rf_data'][:-1])
             if "Temp1" in jData.keys():
                 print jData
-                print jData.keys()
-                print type(jData.keys())
-                print jData[jData.keys()[0]].keys()
+                #print jData.keys()
+                #print type(jData.keys())
+                #print jData[jData.keys()[0]].keys()
             if "Barometer" in  jData.keys():
                 print jData
                 # Get the time sent with the readings and 
