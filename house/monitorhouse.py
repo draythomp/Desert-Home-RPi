@@ -62,7 +62,8 @@ def openSite(Url):
         raise
     except:  #I kept getting strange errors when I was first testing it
         e = sys.exc_info()[0]
-        print ("Odd Error: %s" % e )
+        lprint(url)
+        lprint ("Odd Error: %s" % e )
         raise
     return webHandle
 #------------------------------------------------
@@ -158,6 +159,7 @@ def handlePacket(data):
         if ord(data['deliver_status']) != 0:
             print 'Transmit error = ',
             print data['deliver_status'].encode('hex')
+            print data
     # The receive packet is the workhorse, all the good stuff
     # happens with this packet.
     elif data['id'] == 'rx':
@@ -166,11 +168,44 @@ def handlePacket(data):
         # to send JSON strings to the house controller
         try:
             jData = json.loads(data['rf_data'][:-1])
-            if "Temp1" in jData.keys():
+            if "TempSensor" in jData.keys():
                 print jData
-                #print jData.keys()
-                #print type(jData.keys())
-                #print jData[jData.keys()[0]].keys()
+                #print "name       : ", jData["TempSensor"]["name"]
+                #print "processor T: ", jData["TempSensor"]["ptemperature"]
+                #print "processor V: ", jData["TempSensor"]["voltage"]
+                #print "room  T    : ", jData["TempSensor"]["temperature"]
+                dbconn = sqlite3.connect(DATABASE)
+                c = dbconn.cursor()
+                c.execute("select count(*) from tempsensor where name = ?;", 
+                    (jData['TempSensor']['name'],))
+                count = c.fetchone()[0]
+                print "found ", count
+                if count == 0:
+                    lprint ("Adding new TempSensor")
+                    c.execute("insert into TempSensor(name, ptemp, "
+                        "pvolt, temp, utime)"
+                        "values (?, ?, ?, ?, ?);",
+                        (jData["TempSensor"]["name"],
+                        jData["TempSensor"]["ptemperature"],
+                        jData["TempSensor"]["voltage"],
+                        jData["TempSensor"]["temperature"],
+                        dbTime()))
+                else:
+                    #lprint ("updating TempSensor ", jData['TempSensor']['name'])
+                    c.execute("update TempSensor " 
+                        "set ptemp = ?, "
+                        "pvolt = ?,"
+                        "temp = ?,"
+                        "utime = ? where name = ? ;",
+                        (jData['TempSensor']['ptemperature'],
+                        jData['TempSensor']['voltage'],
+                        jData['TempSensor']['temperature'],
+                        dbTime(), 
+                        jData['TempSensor']['name']
+                            ))
+                dbconn.commit()
+                dbconn.close()
+               
             if "Barometer" in  jData.keys():
                 print jData
                 # Get the time sent with the readings and 
@@ -189,7 +224,7 @@ def handlePacket(data):
                     "utime = ?;",
                     (jData['Barometer']['pressure'],
                     jData['Barometer']['temperature'],
-                    dbTime(jData['Barometer']['utime']), 
+                    dbTime(jData['Barometer']['utime']) 
                         ))
                 dbconn.commit()
                 dbconn.close()

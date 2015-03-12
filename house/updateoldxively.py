@@ -105,7 +105,23 @@ def updateXively():
 			current_value = c.execute(
 				"select watts from smartswitch where name = 'monitor'")
 			.fetchone()[0],
+			at=now),
+		xively.Datastream(id='14',
+			current_value = c.execute(
+				"select pressure from barometer")
+			.fetchone()[0],
+			at=now),
+		xively.Datastream(id='15',
+			current_value = c.execute(
+				"select temp from TempSensor where name = 'Temp1'")
+			.fetchone()[0],
+			at=now),
+		xively.Datastream(id='16',
+			current_value = c.execute(
+				"select pvolt from TempSensor where name = 'Temp1'")
+			.fetchone()[0],
 			at=now)
+
 		]
 	try:
 		# update the time in the database
