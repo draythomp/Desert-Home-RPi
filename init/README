@@ -1,0 +1,4 @@
+These are the configuration files to start the processes automatically using
+upstart.  They go in the /etc/init directory.
+
+The file 'house' is the logrotate config file I use.
