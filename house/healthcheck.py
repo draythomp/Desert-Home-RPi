@@ -118,7 +118,7 @@ def checkOtherThings():
 processList = ["updatexively.py", "updateoldxively.py",
                 "monitorhouse.py", "updategrovestream.py",
                 "updatets.py", "wemocontrol.py",
-                "events.py", "watchappliance.py","updateemon.py"]
+                "events.py", "iriscontrol.py","updateemon.py"]
 recordList = ["acidpump","emoncms", "garage", "grovestream", 
                 "oldxively", "pool", "power", "septic", "thermostats", 
                 "thingspeak", "Barometer", "xively", "smartswitch", "lights"]

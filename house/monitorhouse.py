@@ -179,7 +179,6 @@ def handlePacket(data):
                 c.execute("select count(*) from tempsensor where name = ?;", 
                     (jData['TempSensor']['name'],))
                 count = c.fetchone()[0]
-                print "found ", count
                 if count == 0:
                     lprint ("Adding new TempSensor")
                     c.execute("insert into TempSensor(name, ptemp, "
