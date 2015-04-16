@@ -19,8 +19,32 @@ def dbTime(seconds=None):
         t = time.localtime(float(seconds) + time.timezone)
     else:
         t = time.localtime()
-    return time.strftime("%A, %B, %d at %H:%M:%S",t)
+    return time.strftime("%A, %B, %d, at %H:%M:%S",t)
 
+# returns an ascii string representing the unix ipoch time. I use
+# it to key records on the database based on the time it happens.
+def dbTimeStamp(seconds=None):
+    if seconds is not None:
+        t = int(seconds)
+    else:
+        t = int(time.time())
+    return str(t)
+    
+# This will return the unix epoch time for midnight of the day asked for
+# relative to today. Send a 1 when you want yesterday, a null for today, 
+# a 7 for a week ago, etc. I use it for weather readings over time.
+def midnight(when=None):
+    if (when==None):
+        t = datetime.now()
+    else:
+        t = datetime.now() - timedelta(days=when)
+    # set the hours, mins, sec etc. to zero to represent midnight
+    midnight = t.now().replace \
+        (hour=0, minute=0, second=0, microsecond=0)
+    # now convert that to unix epoch time
+    # and return a string to use
+    return str(int(time.mktime(midnight.timetuple())))
+    
 # See http://www.desert-home.com/2014/10/using-rc-file-in-my-system.html
 # for a description of the .houserc file I use.
 def getHouseValues():

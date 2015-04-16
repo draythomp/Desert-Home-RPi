@@ -39,6 +39,11 @@ def talkHTML(ip, command):
         return  websiteHtml
 
 #-------These are the jobs that get scheduled----------------
+def bedroomLightOn():
+    talkHTML(irisControl,"command?whichone=monitor&what=on");
+
+def bedroomLightOff():
+    talkHTML(irisControl,"command?whichone=monitor&what=off");
 
 def outsideLightsOn():
     talkHTML(wemoController,"pCommand?command=OutsideLightsOn");
@@ -84,6 +89,21 @@ def poolMotorOnHigh(message=None):
             args=["Double Checking"])
     dbconn.close() # close the data base
 
+def poolMotorOnLow(message=None):
+    dbconn = sqlite3.connect(DATABASE)
+    c = dbconn.cursor()
+    tmp = c.execute("select motor from pool").fetchone()[0];
+    if message is not None:
+        lprint(message)
+    lprint ("Pool pump is currently: ", tmp)
+    if (tmp == 'Off' or tmp == 'High'):
+        talkHTML(houseMonitor,"pCommand?command=Pool pumplow");
+        lprint ("Pool Pump On Low")
+        scheditem.add_job(poolMotorOnLow, 'date', 
+            run_date=datetime.now() + timedelta(minutes=1), 
+            args=["Double Checking"])
+    dbconn.close() # close the data base
+    
 def fansRecirc():
     talkHTML(houseMonitor,"pCommand?command=preset recirc");
     lprint("A/C fans to recirc")
@@ -131,6 +151,9 @@ lprint("Wemo Controller is:", wemoController);
 houseMonitor = hv["monitorhouse"]["ipAddress"] + ":" + \
                     str(hv["monitorhouse"]["port"])
 lprint("House Monitor is:", houseMonitor);
+irisControl = hv["iriscontrol"]["ipAddress"] + ":" + \
+                    str(hv["iriscontrol"]["port"])
+lprint("Iris Control is:", irisControl);
 
 #------------------Stuff I schedule to happen -----
 scheditem = BackgroundScheduler()
@@ -158,9 +181,17 @@ scheditem.add_job(poolMotorOff, 'cron', hour=22, minute=0,args=["Pool Off for th
 # Specifically turn the pool motor on (high) to get some filter time
 scheditem.add_job(poolMotorOnHigh, 'cron', hour=19, minute=2,args=["Start pool motor (high)"])
 
+# Specifically turn the pool motor on (low) to get some solar time
+# scheditem.add_job(poolMotorOnLow, 'cron', hour=7, minute=0,args=["Start pool motor (high)"])
+
 # Run the acid pump in the morning, every day
 # Acid pump shuts itself off automatically.
 scheditem.add_job(acidPumpOn, 'cron', hour=8, minute=0)
+
+# Turn the lights on by my bed at 9PM every day
+scheditem.add_job(bedroomLightOn, 'cron', hour=21, minute=0)
+# and then back off if I'm not there to do it
+scheditem.add_job(bedroomLightOff, 'cron', hour=2, minute=0)
 
 # This one is only to test the interaction between processes
 #scheditem.add_job(testJob, 'interval', seconds=15)

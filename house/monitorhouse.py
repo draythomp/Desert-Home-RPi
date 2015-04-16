@@ -45,6 +45,7 @@ DayOutMaxTemp = -50
 DayOutMinTemp = 200
 
 #-------------------------------------------------
+
 def openSite(Url):
     #print Url
     try:
@@ -66,6 +67,15 @@ def openSite(Url):
         lprint ("Odd Error: %s" % e )
         raise
     return webHandle
+    
+def talkHTML(ip, command):
+    website = openSite("HTTP://" + ip + '/' + urllib2.quote(command, safe="%/:=&?~#+!$,;'@()*[]"))
+    # now (maybe) read the status that came back from it
+    if website is not None:
+        websiteHtml = website.read()
+        return  websiteHtml
+
+    
 #------------------------------------------------
 def controlThermo(whichOne, command):
     dbconn = sqlite3.connect(DATABASE)
@@ -171,7 +181,7 @@ def handlePacket(data):
             if "TempSensor" in jData.keys():
                 print jData
                 #print "name       : ", jData["TempSensor"]["name"]
-                #print "processor T: ", jData["TempSensor"]["ptemperature"]
+                #print "command    : ", jData["TempSensor"]["command"]
                 #print "processor V: ", jData["TempSensor"]["voltage"]
                 #print "room  T    : ", jData["TempSensor"]["temperature"]
                 dbconn = sqlite3.connect(DATABASE)
@@ -181,29 +191,29 @@ def handlePacket(data):
                 count = c.fetchone()[0]
                 if count == 0:
                     lprint ("Adding new TempSensor")
-                    c.execute("insert into TempSensor(name, ptemp, "
+                    c.execute("insert into TempSensor(name,"
                         "pvolt, temp, utime)"
-                        "values (?, ?, ?, ?, ?);",
+                        "values (?, ?, ?, ?);",
                         (jData["TempSensor"]["name"],
-                        jData["TempSensor"]["ptemperature"],
                         jData["TempSensor"]["voltage"],
                         jData["TempSensor"]["temperature"],
                         dbTime()))
                 else:
                     #lprint ("updating TempSensor ", jData['TempSensor']['name'])
-                    c.execute("update TempSensor " 
-                        "set ptemp = ?, "
+                    c.execute("update TempSensor set " 
                         "pvolt = ?,"
                         "temp = ?,"
                         "utime = ? where name = ? ;",
-                        (jData['TempSensor']['ptemperature'],
-                        jData['TempSensor']['voltage'],
+                        (jData['TempSensor']['voltage'],
                         jData['TempSensor']['temperature'],
                         dbTime(), 
                         jData['TempSensor']['name']
-                            ))
+                        ))
                 dbconn.commit()
                 dbconn.close()
+                if (jData['TempSensor']['command'] != 'nothing'):
+                    #got a command from the sensor
+                    talkHTML(irisControl,"command?whichone=monitor&what=toggle");
                
             if "Barometer" in  jData.keys():
                 print jData
@@ -557,6 +567,29 @@ def doComm():
         # now go dismantle the packet
         # and use it.
         handlePacket(newPacket)
+        
+''' 
+Data comes from several sources and is collected in the database
+However, many processes need it and some of them aren't even on this
+machine. So, this will gather stuff into a dictionary and pass it back
+as needed
+'''
+def gatherData():
+    status = {}
+    dbconn = sqlite3.connect(DATABASE)
+    c = dbconn.cursor()
+    c.execute("select Barometer from midnight;")
+    midnightBarometric = c.fetchone()[0]
+    status.update({"midnightBarometric": midnightBarometric}),
+    c.execute("select temperature from barometer;")
+    currentOutsideTemp= c.fetchone()[0]
+    status.update({"currentOutsideTemp":currentOutsideTemp})
+    c.execute("select pressure from barometer;")
+    currentBarometric = c.fetchone()[0]
+    status.update({"currentBarometric":currentBarometric})
+    dbconn.close()
+    return status
+    
 '''
 This is where the control interface for the tiny web server is 
 defined.  Each of these is a web 'page' that you get to with
@@ -569,6 +602,12 @@ class monitorhouseSC(object):
     def pCommand(self, command):
         handleCommand((command,0));
 
+    @cherrypy.expose
+    @cherrypy.tools.json_out() # This allows a dictionary input to go out as JSON
+    def status(self):
+        status = gatherData()
+        return status
+        
     @cherrypy.expose
     def index(self):
         status = "<strong>House Monitor Process</strong><br /><br />"
@@ -609,6 +648,9 @@ DATABASE = hv["database"]
 # from the houserc file
 ipAddress= hv["monitorhouse"]["ipAddress"]
 port = hv["monitorhouse"]["port"]
+irisControl = hv["iriscontrol"]["ipAddress"] + ":" + \
+                    str(hv["iriscontrol"]["port"])
+lprint("Iris Control is:", irisControl);
 
 # The XBee addresses I'm dealing with
 BROADCAST = '\x00\x00\x00\x00\x00\x00\xff\xff'

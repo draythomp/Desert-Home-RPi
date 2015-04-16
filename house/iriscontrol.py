@@ -283,6 +283,12 @@ def getSwitchStatus(whichOne):
     dbconn.close()
     return result
 
+def switchToggle(whichOne):
+    if (getSwitchStatus(whichOne).lower() == "on"):
+        switchOff(whichOne)
+    else:
+        switchOn(whichOne)
+        
 def switchOn(whichOne):
     print "Turning ON", whichOne;
     try:
@@ -364,6 +370,7 @@ class IrisSC(object):
             status += key + "&nbsp;&nbsp;"
             status += '<a href="command?whichone='+ key +'&what=On"><button>On</button></a>'
             status += '<a href="command?whichone='+ key +'&what=Off"><button>Off</button></a>'
+            status += '<a href="command?whichone='+ key +'&what=Toggle"><button>Toggle</button></a>'
             status += "<br />"
         return status
         
@@ -373,10 +380,12 @@ class IrisSC(object):
         # toggle(whichone)
         # now reload the index page to tell the user
         print "incoming with ", whichone, what
-        if ( what == 'On'):
+        if ( what.lower() == 'on'):
             switchOn(whichone)
-        else:
+        if (what.lower() == "off"):
             switchOff(whichone)
+        if (what.lower() == "toggle"):
+            switchToggle(whichone)
         raise cherrypy.InternalRedirect('/index')
         
 def stopXBee():

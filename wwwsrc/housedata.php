@@ -114,17 +114,17 @@ $bp = timedQuerySingle(
 $mb = timedQuerySingle(
 	'select "barometer" from "midnight";');
 $db->close();
-# The weather string is a pain, this is converting it, and
-# since I can reuse variables and I'm tired of thinking up names
-# I use the same name over and over again just to confuse
-# anyone reading this.
-# First, there an extra set of quotes around the string
-$ws=substr($ws,1,strlen($ws)-2);
-# Now I have to get rid of the \" that I had to use to put it in
-# the database
-$ws=str_replace("\\","",$ws);
-#Now, convert the json into variables
-$ws = json_decode($ws,true);
+
+# The weather is being handled by a different process on a 
+# different machine. So, get the address and port number for
+# an http get to gather the data
+$stationIp = json_decode($config,true)["giveweather"]["ipAddress"];
+$stationPort = json_decode($config,true)["giveweather"]["port"];
+# Now go the data from the weather station
+$response = file_get_contents("http://$stationIp:$stationPort/status");
+# The $response variable has the json string returned.
+# So, convert the json into variables
+$ws = json_decode($response,true);
 # Now, construct an array to use in the  json_encode()
 # statement at the bottom.
 $giveback = array('power' => $power, 'outsidetemp'=>$outtemp,
@@ -136,9 +136,13 @@ $giveback = array('power' => $power, 'outsidetemp'=>$outtemp,
 	'pm'=>$pm, 'pw'=>$pw, 'pl'=>$pl, 'pf'=>$pf, 'ps'=>$ps, 'pt'=>$pt,
 	'stl'=>$stl,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
-    'ws'=>$ws["windSpeed"]["WS"],'wd'=>$ws["windDirection"]["WD"],
-    'hy'=>$ws["humidity"]["H"],'rtt'=>$ws["temperature"]["T"],
-    'bp'=>$bp,'mb'=>$mb);
+    # The weather station data
+    'ws'=>$ws["windSpeed"],'wd'=>$ws["windDirectionC"],
+    'hy'=>$ws["humidity"],'rtt'=>$ws["roofTemperature"],
+    'bp'=>$ws["currentBarometric"],'mb'=>$ws["midnightBarometric"],
+    'hws'=>$ws["maxWindSpeedToday"],'htt'=>$ws["maxTempToday"],
+    'ltt'=>$ws["minTempToday"], 'rft'=>$ws["rainToday"]
+    );
 # And lastly, send it back to the web page
 echo json_encode($giveback);
 ?>

@@ -17,7 +17,7 @@ def specialTempSensor(c, when):
     # convert the string into seconds
     # I don't keep the current year in the database (dumb mistake)
     # so I have to seriously fudge things
-    writeable = list(time.strptime(timeString,"%A, %B, %d at %H:%M:%S"))
+    writeable = list(time.strptime(timeString,"%A, %B, %d, at %H:%M:%S"))
     writeable[0] = time.localtime()[0]
     then = time.mktime(time.struct_time(tuple(writeable)))
     # do the same with the local time; this one is easier

@@ -65,6 +65,11 @@ function gatherdata(){
         if (isNumber(data.mb)){
             barometerGauge.setThreshold(data.mb);
         }
+        $("#hwst").text(data.hws);
+        $("#htt").text(data.htt);
+        $("#ltt").text(data.ltt);
+        $("#rft").text(data.rft);
+
         // The Wemo Light Switches
         if (data.log=="On"){
             $("#log").css("background-color","yellow");
@@ -264,8 +269,11 @@ function gatherdata(){
         <canvas id=humidityCanvas width=200 height=300></canvas>
         <canvas id=wsTempCanvas width=200 height=300></canvas>
         <canvas id=barometerCanvas width=200 height=300></canvas>
-        <br />It's way up on the roof exposed to everything
-        </td>
+        <div>It's way up on the roof exposed to everything</div>
+        <div>and it only updates every minute</div>
+        <div><br /></div>
+        <div>High Temp Today: <span id=htt>wait</span>, Low Temp Today: <span id=ltt>wait</span></div>
+        <div>High Wind Speed Today: <span id=hwst>wait</span>, Rain Fall Today: <span id=rft>wait</span></div>
     </tr>
     <tr> <!-- And these are the preset buttons -->
         <td style="text-align: center;">
