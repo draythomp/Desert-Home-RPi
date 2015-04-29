@@ -27,6 +27,7 @@ import serial
 import signal
 import Queue
 import sqlite3
+import MySQLdb as mdb
 import sys
 import urllib2
 import BaseHTTPServer
@@ -225,18 +226,22 @@ def handlePacket(data):
                 #         "Recorded Time is", jData['Barometer']['utime'],
                 #         "Which should be converted to",dbTime(jData['Barometer']['utime'])) 
                 # do database stuff
-                dbconn = sqlite3.connect(DATABASE)
+                dbconn = mdb.connect(host=dbHost, user=dbUser, 
+                    passwd=dbPassword, db=dbName)
                 c = dbconn.cursor()
-                c.execute("update barometer " 
-                    "set pressure = ?, "
-                    "temperature = ?,"
-                    "utime = ?;",
-                    (jData['Barometer']['pressure'],
-                    jData['Barometer']['temperature'],
-                    dbTime(jData['Barometer']['utime']) 
-                        ))
+                c.execute("insert into barometer (reading, utime)"
+                    "values(%s, %s);",
+                    (jData["Barometer"]["pressure"],
+                    jData["Barometer"]["utime"]))
+                c.execute("insert into ftemperature (reading, utime)"
+                    "values(%s, %s);",
+                    (jData["Barometer"]["temperature"],
+                    jData["Barometer"]["utime"]))
                 dbconn.commit()
                 dbconn.close()
+        except mdb.Error, e:
+            lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+            return
         except KeyError:
             lprint("KeyError doing json decode")
             lprint(jData)
@@ -568,28 +573,6 @@ def doComm():
         # and use it.
         handlePacket(newPacket)
         
-''' 
-Data comes from several sources and is collected in the database
-However, many processes need it and some of them aren't even on this
-machine. So, this will gather stuff into a dictionary and pass it back
-as needed
-'''
-def gatherData():
-    status = {}
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    c.execute("select Barometer from midnight;")
-    midnightBarometric = c.fetchone()[0]
-    status.update({"midnightBarometric": midnightBarometric}),
-    c.execute("select temperature from barometer;")
-    currentOutsideTemp= c.fetchone()[0]
-    status.update({"currentOutsideTemp":currentOutsideTemp})
-    c.execute("select pressure from barometer;")
-    currentBarometric = c.fetchone()[0]
-    status.update({"currentBarometric":currentBarometric})
-    dbconn.close()
-    return status
-    
 '''
 This is where the control interface for the tiny web server is 
 defined.  Each of these is a web 'page' that you get to with
@@ -602,12 +585,6 @@ class monitorhouseSC(object):
     def pCommand(self, command):
         handleCommand((command,0));
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out() # This allows a dictionary input to go out as JSON
-    def status(self):
-        status = gatherData()
-        return status
-        
     @cherrypy.expose
     def index(self):
         status = "<strong>House Monitor Process</strong><br /><br />"
@@ -642,8 +619,15 @@ packets = Queue.Queue() # When I get a packet, I put it on here
 XBEEBAUD_RATE = 9600
 ser = serial.Serial(XBEEPORT, XBEEBAUD_RATE)
 
-# the database where I'm storing stuff
+# the database where I'm storing house stuff
 DATABASE = hv["database"]
+
+# The database where weather data is stored
+dbName = hv["weatherDatabase"]
+dbHost = hv["weatherHost"]
+dbPassword = hv["weatherPassword"]
+dbUser = hv["weatherUser"]
+
 # Get the ip address and port number you want to use
 # from the houserc file
 ipAddress= hv["monitorhouse"]["ipAddress"]
