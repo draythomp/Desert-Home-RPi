@@ -6,7 +6,7 @@ import logging
 import time
 import sqlite3
 import httplib, urllib
-from houseutils import getHouseValues, lprint
+from houseutils import getHouseValues, lprint, dbTime
 
 # This is where the update to ThingSpeak happens
 def updateEmonCms():
@@ -102,7 +102,7 @@ def updateEmonCms():
 	# Now that everything worked, update the time in the database
 	dbconn = sqlite3.connect(DATABASE)
 	c = dbconn.cursor()
-	c.execute("update emoncms set utime=?;",(time.strftime("%A, %B, %d at %H:%M:%S"),))
+	c.execute("update emoncms set utime=?;",(dbTime(),))
 	dbconn.commit()
 	dbconn.close() # close the data base
 

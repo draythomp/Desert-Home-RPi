@@ -11,7 +11,7 @@ import StringIO
 import gzip
 import sqlite3
 import pprint
-from houseutils import getHouseValues, lprint
+from houseutils import getHouseValues, lprint, dbTime
 
 #If you want lots of messages and debug information
 # set this to true
@@ -194,7 +194,7 @@ def updateGrovestreams():
 
 	# all the values are filled in, close the database
 	# update the time in the database
-	c.execute("update grovestream set utime=?;",(time.strftime("%A, %B, %d at %H:%M:%S"),))
+	c.execute("update grovestream set utime=?;",(dbTime(),))
 	dbconn.commit()
 	dbconn.close() # close the data base
 	# This will print the entire dictionary I just constructed

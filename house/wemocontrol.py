@@ -14,7 +14,7 @@ import re
 import argparse
 import sqlite3
 import cherrypy
-from houseutils import lprint, getHouseValues, timer, checkTimer
+from houseutils import lprint, getHouseValues, timer, checkTimer, dbTime
 
 #--------This is for the HTML interface 
 def openSite(Url):
@@ -298,7 +298,7 @@ def updateDatabase(whichone, status, force=False):
         try:
             c.execute("update lights " 
                 "set status = ?, utime = ? where name = ?;",
-                (status, time.strftime("%A, %B, %d at %H:%M:%S"), whichone))
+                (status, dbTime(), whichone))
             dbconn.commit()
         except sqlite3.OperationalError:
             lprint("Database is locked, record skipped")

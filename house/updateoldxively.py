@@ -8,7 +8,7 @@ import datetime
 import logging
 import time
 import sqlite3
-from houseutils import getHouseValues, lprint
+from houseutils import getHouseValues, lprint, dbTime
 
 def specialTempSensor(c, when):
     # get the time out of the database
@@ -143,7 +143,7 @@ def updateXively():
     try:
         # update the time in the database
         feed.update()  # and update Xively with the latest
-        c.execute("update oldxively set utime=?;",(time.strftime("%A, %B, %d at %H:%M:%S"),))
+        c.execute("update oldxively set utime=?;",(dbTime(),))
         dbconn.commit()
         dbconn.close() # close the data base
     except:

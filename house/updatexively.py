@@ -6,7 +6,7 @@ import datetime
 import logging
 import time
 import sqlite3
-from houseutils import getHouseValues, lprint
+from houseutils import getHouseValues, lprint, dbTime
 
 # This is where the update to Xively happens
 def updateXively():
@@ -89,7 +89,7 @@ def updateXively():
 	try:
 		feed.update()  # and update Xively with the latest
 		# update the time in the database
-		c.execute("update xively set utime=?;",(time.strftime("%A, %B, %d at %H:%M:%S"),))
+		c.execute("update xively set utime=?;",(dbTime(),))
 		dbconn.commit()
 		dbconn.close() # close the data base
 	except:

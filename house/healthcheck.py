@@ -97,8 +97,9 @@ def checkUpdateTimes(items):
     dbconn.close()
     now = datetime.datetime.now()
     for key, value in collected.items():
+        print key, value
         lastTime = datetime.datetime.strptime(value[0],
-            "%A, %B, %d at %H:%M:%S").replace(year=now.year)
+            "%A, %B, %d, at %H:%M:%S").replace(year=now.year)
         if ( now > (lastTime + timedelta(minutes=5)) ):
             notReporting.append(key)
     return notReporting
@@ -121,7 +122,7 @@ processList = ["updatexively.py", "updateoldxively.py",
                 "events.py", "iriscontrol.py","updateemon.py"]
 recordList = ["acidpump","emoncms", "garage", "grovestream", 
                 "oldxively", "pool", "power", "septic", "thermostats", 
-                "thingspeak", "Barometer", "xively", "smartswitch", "lights"]
+                "thingspeak", "xively", "smartswitch", "lights"]
 
 def monitorTheMonitor():
     #Check to see if all the processes are running

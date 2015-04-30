@@ -22,7 +22,7 @@ import shlex
 import sqlite3
 import binascii
 import cherrypy
-from houseutils import lprint, getHouseValues, timer, checkTimer
+from houseutils import lprint, getHouseValues, timer, checkTimer, dbTime
 
 # this is the only way I could think of to get the address strings to store.
 # I take the ord() to get a number, convert to hex, then take the 3 to end
@@ -141,7 +141,7 @@ def messageReceived(data):
                     'unknown',
                     '0',
                     '0',
-                    time.strftime("%A, %B, %d at %H:%M:%S")))
+                    dbTime()))
                 dbconn.commit()
         except OperationalError:
             lprint("Database is locked, record skipped")
@@ -166,7 +166,7 @@ def messageReceived(data):
                     "shortaddress = ?, "
                     "utime = ? where longaddress = ?; ",
                     (usage, addrToString(data['source_addr']), 
-                        time.strftime("%A, %B, %d at %H:%M:%S"), addrToString(data['source_addr_long'])))
+                        dbTime(), addrToString(data['source_addr_long'])))
                 dbconn.commit()
             except OperationalError:
                 lprint("Database locked, record skipped")
@@ -194,9 +194,9 @@ def messageReceived(data):
                     "shortaddress = ?, "
                     "utime = ? where longaddress = ?; ",
                     (usage, addrToString(data['source_addr']), 
-                        time.strftime("%A, %B, %d at %H:%M:%S"), addrToString(data['source_addr_long'])))
+                        dbTime(), addrToString(data['source_addr_long'])))
                 dbconn.commit()
-            except OperationalError:
+            except sqlite3.OperationalError:
                 lprint("Database is locked, record skipped")
             dbconn.close()
             
@@ -236,7 +236,7 @@ def messageReceived(data):
                     "shortaddress = ?, "
                     "utime = ? where longaddress = ?; ",
                     (status, addrToString(data['source_addr']), 
-                        time.strftime("%A, %B, %d at %H:%M:%S"), addrToString(data['source_addr_long'])))
+                        dbTime(), addrToString(data['source_addr_long'])))
                 dbconn.commit()
             except OperationalError:
                 lprint("Database is locked, record skipped")

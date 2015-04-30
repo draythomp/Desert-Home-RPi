@@ -6,11 +6,11 @@ import logging
 import time
 import sqlite3
 import httplib, urllib
-from houseutils import getHouseValues, lprint
+from houseutils import getHouseValues, lprint, dbTime
 
 # this is for putting things in the log file
 def lprint(text):
-	print time.strftime("%A, %B, %d at %H:%M:%S"),text
+	print dbTime(),text
 	sys.stdout.flush()
 
 # This is where the update to ThingSpeak happens
@@ -105,7 +105,7 @@ def updateThingSpeak():
 	# Now that everything worked, update the time in the database
 	dbconn = sqlite3.connect(DATABASE)
 	c = dbconn.cursor()
-	c.execute("update thingspeak set utime=?;",(time.strftime("%A, %B, %d at %H:%M:%S"),))
+	c.execute("update thingspeak set utime=?;",(dbTime(),))
 	dbconn.commit()
 	dbconn.close() # close the data base
 
