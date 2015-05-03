@@ -12,9 +12,10 @@ import sys
 import json
 import re
 import argparse
-import sqlite3
+#import sqlite3
+import MySQLdb as mdb
 import cherrypy
-from houseutils import lprint, getHouseValues, timer, checkTimer, dbTime
+from houseutils import lprint, getHouseValues, timer, checkTimer, dbTimeStamp
 
 #--------This is for the HTML interface 
 def openSite(Url):
@@ -170,14 +171,14 @@ def sendCommand(actionName, whichOne, actionArguments):
             # it did change, this will fix it.
             item["port"] = newEntry["port"]
             lprint ("Switch", whichOne, "changed ip from", switchPort, "to", newEntry["port"])
-            dbconn = sqlite3.connect(DATABASE)
+            dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
             c = dbconn.cursor()
             try:
-                c.execute("update lights " 
-                    "set port=? where name = ?;",
+                c.execute("update wemo " 
+                    "set port=%s where name = %s;",
                     (newEntry["port"], whichOne))
-            except sqlite3.OperationalError:
-                lprint("Database is locked, record skipped")
+            except mdb.Error, e:
+                lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             dbconn.commit()
             dbconn.close()
             # now try the command again
@@ -288,20 +289,20 @@ def updateDatabase(whichone, status, force=False):
     According to everything I've read, reads are free, it's the writes that
     eat up the card.
     '''
-    dbconn = sqlite3.connect(DATABASE)
+    dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
     c = dbconn.cursor()
-    c.execute("select status from lights where name = ?;",
+    c.execute("select status from wemo where name = %s;",
         (whichone,))
     oldstatus = c.fetchone()
     if oldstatus[0] != status or force == True:
         lprint ("Had to update database %s, %s"%(whichone, status))
         try:
-            c.execute("update lights " 
-                "set status = ?, utime = ? where name = ?;",
-                (status, dbTime(), whichone))
+            c.execute("update wemo " 
+                "set status = %s, utime = %s where name = %s;",
+                (status, dbTimeStamp(), whichone))
             dbconn.commit()
-        except sqlite3.OperationalError:
-            lprint("Database is locked, record skipped")
+        except mdb.Error, e:
+            lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
     dbconn.close()
 
 # If a command comes in from somewhere, this is where it's handled.
@@ -417,12 +418,18 @@ if __name__ == "__main__":
 
     #-------------------------------------------------
     # the database where I'm storing stuff
-    DATABASE=getHouseValues()["database"]
-    lprint("Using database ", DATABASE);
+    hv=getHouseValues()
+    dbName = hv["houseDatabase"]
+    dbHost = hv["houseHost"]
+    dbPassword = hv["housePassword"]
+    dbUser = hv["houseUser"]
+
+    lprint("Using database ", dbName);
+    
     # Get the ip address and port number you want to use
     # from the houserc file
-    ipAddress=getHouseValues()["wemocontrol"]["ipAddress"]
-    port = getHouseValues()["wemocontrol"]["port"]
+    ipAddress=hv["wemocontrol"]["ipAddress"]
+    port = hv["wemocontrol"]["port"]
     lprint("started looking for {} switches".format(targetNumber))
 
     # This works on my machine, but you may have to mess with it
@@ -506,40 +513,16 @@ if __name__ == "__main__":
     # Now I'm going to check the database to see if it has been
     # adjusted to hold all the items (older version didn't have
     # ip, port, and mac addresses
-    dbconn = sqlite3.connect(DATABASE)
+    dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
     c = dbconn.cursor()
-    c.execute("pragma table_info(lights);")
-    dbrow = c.fetchall()
-    if not any('ip' and 'mac' and 'port' in r for r in dbrow):
-        lprint ("Database needs to be adjusted")
-        lprint ("to hold ip, port, and MAC")
-        try:
-            print "adding ip if needed"
-            c.execute("alter table lights add column ip text;")
-        except sqlite3.OperationalError:
-            print "ip was already there"
-        try:
-            print "adding mac if needed"
-            c.execute("alter table lights add column mac text;")
-        except sqlite3.OperationalError:
-            print "mac was already there"
-        try:
-            print "adding port if needed"
-            c.execute("alter table lights add column port text;")
-        except sqlite3.OperationalError:
-            print "port was already there"
-        dbconn.commit()
-    else:
-        lprint ("Database already adjusted")
     for item in switches:
         try:
-            c.execute("update lights " 
-                "set ip = ?, mac=?, port=?where name = ?;",
+            c.execute("update wemo " 
+                "set ip = %s, mac=%s, port=%s where name = %s;",
                 (item["ip"], item["mac"], item["port"], item["name"]))
-            dbconn.commit()
-        except sqlite3.OperationalError:
-            lprint("Database is locked, record skipped")
-    dbconn.commit()
+        except mdb.Error, e:
+            lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+        dbconn.commit()
     dbconn.close()
     lprint ("")
     lprint ("The list of", len(switches), "switches found is")

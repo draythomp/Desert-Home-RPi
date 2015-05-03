@@ -131,23 +131,7 @@ function gatherdata(){
         $("#stfs").text(data.stfs);
         $("#ntts").text(data.ntts);
         $("#stts").text(data.stts);
-        // items for the acid pump
-        $("#aps").text(data.aps);
-        $("#apl").text(data.apl);
-/*      if (data.aps == "Off"){
-            $("#apboff").attr("disabled","disabled");
-            $("#apbon").removeAttr("disabled");
-            }
-        else if (data.aps == "ON"){
-            $("#apbon").attr("disabled","disabled");
-            $("#apboff").removeAttr("disabled");
-            }
-        else{
-            $("#apbon").attr("disabled","disabled");
-            $("#apboff").attr("disabled","disabled");
-            }
- */
-        // Septic Tank level
+       // Septic Tank level
         $("#stl").text(data.stl);
         // garage door
         $("#gd1").text(data.gd1);
@@ -417,28 +401,6 @@ function gatherdata(){
             <td colspan="2">Temp: <span id=pt>wait</span><br /></td>
         </tr>
         </table>
-        <!-- Table for the acid pump -->
-        <table border="1" cellpadding="3" cellspacing= "1">
-        <tr style="color:black; background-color:yellow"> <!-- Title Row -->
-            <td><strong><center>Acid Pump</center></strong></td>
-        </tr>
-        <tr> <!-- First row is the Acid Pump -->
-            <td>Currently: <span id=aps>wait</span><br />
-            Level: <span id=apl>wait</span><br />
-            <center>
-            <button id=apbon style="background-color:lightgray" onClick="doit('apump','pumpOn')">On</button>
-            <button id=apboff style="background-color:lightgray" onClick="doit('apump','pumpOff')">Off</button>
-            </center>
-            </td>
-        </tr>
-        <tr style="color:black; background-color:yellow"> <!-- Title Row -->
-            <td><strong><center>Septic Tank</center></strong></td>
-        </tr>
-        <tr> <!-- Second row is the Septic Tank -->
-            <td>Septic Tank: <span id=stl>wait</span><br />
-            </td>
-        </tr>
-        </table>
         <!-- Table for the garage controller -->
         <table border="1" cellpadding="3" cellspacing= "1">
         <tr style="color:black; background-color:yellow"> <!-- Title Row -->
@@ -463,6 +425,10 @@ function gatherdata(){
             <td>
             <button id=whonb style="background-color:lightgray" onClick="doit('garage','waterhon')">On</button>
             <button id=whoffb style="background-color:lightgray" onClick="doit('garage','waterhoff')">Off</button>
+            </td>
+        </tr>
+        <tr> <!-- Fourth Row Septic Tank -->
+            <td colspan="2">Septic Tank: <span id=stl>wait</span><br />
             </td>
         </tr>
         </table>

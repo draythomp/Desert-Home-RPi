@@ -19,10 +19,10 @@ import time
 import serial
 import sys
 import shlex
-import sqlite3
+import MySQLdb as mdb
 import binascii
 import cherrypy
-from houseutils import lprint, getHouseValues, timer, checkTimer, dbTime
+from houseutils import lprint, getHouseValues, timer, checkTimer, dbTimeStamp
 
 # this is the only way I could think of to get the address strings to store.
 # I take the ord() to get a number, convert to hex, then take the 3 to end
@@ -118,7 +118,8 @@ def messageReceived(data):
         # I'll leave the name alone and just use the existing record
         # Yes, this means you'll have to go into the database and assign it a name
         # 
-        dbconn = sqlite3.connect(DATABASE)
+        dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, 
+                db=dbName)
         c = dbconn.cursor()
         try:
             # See if the device is already in the database
@@ -126,7 +127,7 @@ def messageReceived(data):
             # then go correct the name using the human interface
             # to sqlite3
             c.execute("select name from smartswitch "
-                "where longaddress = ?; ",
+                "where longaddress = %s; ",
                 (addrToString(data['source_addr_long']),))
             switchrecord = c.fetchone()
             if switchrecord is not None:
@@ -134,42 +135,43 @@ def messageReceived(data):
             else:
                 lprint ("Adding new device")
                 c.execute("insert into smartswitch(name,longaddress, shortaddress, status, watts, twatts, utime)"
-                    "values (?, ?, ?, ?, ?, ?, ?);",
+                    "values (%s, %s, %s, %s, %s, %s, %s);",
                     ('unknown',
                     addrToString(data['source_addr_long']),
                     addrToString(data['source_addr']),
                     'unknown',
                     '0',
                     '0',
-                    dbTime()))
+                    dbTimeStamp()))
                 dbconn.commit()
-        except OperationalError:
-            lprint("Database is locked, record skipped")
+        except mdb.Error, e:
+            lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         dbconn.close()
 
     elif (clusterId == 0xef):
         clusterCmd = ord(data['rf_data'][2])
         if (clusterCmd == 0x81):
             usage = ord(data['rf_data'][3]) + (ord(data['rf_data'][4]) * 256)
-            dbconn = sqlite3.connect(DATABASE)
+            dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, 
+                db=dbName)
             c = dbconn.cursor()
             # get device name from database
             try:
                 c.execute("select name from smartswitch "
-                    "where longaddress = ?; ",
+                    "where longaddress = %s; ",
                     (addrToString(data['source_addr_long']),))
                 name = c.fetchone()[0].capitalize()
                 #lprint ("%s Instaneous Power, %d Watts" %(name, usage))
                 # do database updates
                 c.execute("update smartswitch "
-                    "set watts =  ?, "
-                    "shortaddress = ?, "
-                    "utime = ? where longaddress = ?; ",
+                    "set watts =  %s, "
+                    "shortaddress = %s, "
+                    "utime = %s where longaddress = %s; ",
                     (usage, addrToString(data['source_addr']), 
-                        dbTime(), addrToString(data['source_addr_long'])))
+                        dbTimeStamp(), addrToString(data['source_addr_long'])))
                 dbconn.commit()
-            except OperationalError:
-                lprint("Database locked, record skipped")
+            except mdb.Error, e:
+                lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             dbconn.close()
         elif (clusterCmd == 0x82):
             usage = (ord(data['rf_data'][3]) +
@@ -180,24 +182,25 @@ def messageReceived(data):
                 (ord(data['rf_data'][8]) * 256) +
                 (ord(data['rf_data'][9]) * 256 * 256) +
                 (ord(data['rf_data'][10]) * 256 * 256 * 256) )
-            dbconn = sqlite3.connect(DATABASE)
+            dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, 
+                db=dbName)
             c = dbconn.cursor()
             c.execute("select name from smartswitch "
-                "where longaddress = ?; ",
+                "where longaddress = %s; ",
                 (addrToString(data['source_addr_long']),))
             name = c.fetchone()[0].capitalize()
             lprint ("%s Minute Stats: Usage, %d Watt Hours; Uptime, %d Seconds" %(name, usage/3600, upTime))
             # update database stuff
             try:
                 c.execute("update smartswitch "
-                    "set twatts =  ?, "
-                    "shortaddress = ?, "
-                    "utime = ? where longaddress = ?; ",
+                    "set twatts =  %s, "
+                    "shortaddress = %s, "
+                    "utime = %s where longaddress = %s; ",
                     (usage, addrToString(data['source_addr']), 
-                        dbTime(), addrToString(data['source_addr_long'])))
+                        dbTimeStamp(), addrToString(data['source_addr_long'])))
                 dbconn.commit()
-            except sqlite3.OperationalError:
-                lprint("Database is locked, record skipped")
+            except mdb.Error, e:
+                lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             dbconn.close()
             
     elif (clusterId == 0xf0):
@@ -223,23 +226,24 @@ def messageReceived(data):
                 status = "ON"
             else:
                 status = "OFF"
-            dbconn = sqlite3.connect(DATABASE)
+            dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, 
+                db=dbName)
             c = dbconn.cursor()
             c.execute("select name from smartswitch "
-                "where longaddress = ?; ",
+                "where longaddress = %s; ",
                 (addrToString(data['source_addr_long']),))
             print c.fetchone()[0].capitalize(),
             print "Switch is", status
             try:
                 c.execute("update smartswitch "
-                    "set status =  ?, "
-                    "shortaddress = ?, "
-                    "utime = ? where longaddress = ?; ",
+                    "set status =  %s, "
+                    "shortaddress = %s, "
+                    "utime = %s where longaddress = %s; ",
                     (status, addrToString(data['source_addr']), 
-                        dbTime(), addrToString(data['source_addr_long'])))
+                        dbTimeStamp(), addrToString(data['source_addr_long'])))
                 dbconn.commit()
-            except OperationalError:
-                lprint("Database is locked, record skipped")
+            except mdb.Error, e:
+                lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             dbconn.close()
     else:
         lprint ("Unimplemented Cluster ID", hex(clusterId))
@@ -276,9 +280,9 @@ def getSwitchStatus(whichOne):
     print 'Switch Status for ', whichOne
     print type(whichOne)
     #print "lAddress is ", " ".join(hex(ord(n)) for n in sSwitches[whichOne]["lAddress"])
-    dbconn = sqlite3.connect(DATABASE)
+    dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
     c = dbconn.cursor()
-    c.execute("select status from smartswitch where name = ?;", (whichOne,))
+    c.execute("select status from smartswitch where name = %s;", (whichOne,))
     result = c.fetchone()[0]
     dbconn.close()
     return result
@@ -327,11 +331,10 @@ def switchOff(whichOne):
 def createSwitchList():
     global sSwitches
     
-    dbconn = sqlite3.connect(DATABASE)
+    dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
     c = dbconn.cursor()
     c.execute("select * from smartswitch;")
     result = c.fetchall()
-    dbconn.commit()
     dbconn.close()
 
     sSwitches = {}
@@ -367,7 +370,7 @@ class IrisSC(object):
     def index(self):
         status = "<strong>Current Iris Switch Status</strong><br /><br />"
         for key in sSwitches:
-            status += key + "&nbsp;&nbsp;"
+            status += key + "&nbsp;&nbsp;" + getSwitchStatus(key) + "&nbsp;&nbsp;"
             status += '<a href="command?whichone='+ key +'&what=On"><button>On</button></a>'
             status += '<a href="command?whichone='+ key +'&what=Off"><button>Off</button></a>'
             status += '<a href="command?whichone='+ key +'&what=Toggle"><button>Toggle</button></a>'
@@ -405,7 +408,11 @@ sSwitches = {}
 
 #-------------------------------------------------
 # the database where I'm storing stuff
-DATABASE= hv["database"]
+hv=getHouseValues()
+dbName = hv["houseDatabase"]
+dbHost = hv["houseHost"]
+dbPassword = hv["housePassword"]
+dbUser = hv["houseUser"]
 
 #------------ XBee Stuff -------------------------
 # this is the /dev/serial/by-id device for the USB card that holds the XBee
@@ -419,8 +426,8 @@ UNKNOWN = '\xff\xfe' # This is the 'I don't know' 16 bit address
 
 # Get the ip address and port number you want to use
 # from the houserc file
-ipAddress=getHouseValues()["iriscontrol"]["ipAddress"]
-port = getHouseValues()["iriscontrol"]["port"]
+ipAddress=hv["iriscontrol"]["ipAddress"]
+port = hv["iriscontrol"]["port"]
 
 #-------------------------------------------------
 logging.basicConfig()

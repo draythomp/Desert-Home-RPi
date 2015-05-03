@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import time
 import urllib2
 import BaseHTTPServer
-import sqlite3
+import MySQLdb as mdb
 import sys
 import sysv_ipc
 from houseutils import lprint, getHouseValues
@@ -53,14 +53,20 @@ def outsideLightsOff():
     talkHTML(wemoController,"pCommand?command=OutsideLightsOff");
     lprint ("Turn off Outside Lights")
 
-def acidPumpOn():
-    talkHTML(houseMonitor,"pCommand?command=AcidPump pumpOn");
-    lprint ("Acid Pump on")
+def poolMotorState():
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("select motor from pool")
+        tmp = hc.fetchone()[0];
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close() # close the data base
+    return tmp
 
+    
 def poolMotorOff(message=None):
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    tmp = c.execute("select motor from pool").fetchone()[0];
+    tmp =  poolMotorState()
     if message is not None:
         lprint(message)
     lprint ("Pool pump is currently: ", tmp)
@@ -72,12 +78,9 @@ def poolMotorOff(message=None):
         scheditem.add_job(poolMotorOff, 'date', 
             run_date=datetime.now() + timedelta(minutes=1), 
             args=["Double Checking"])
-    dbconn.close() # close the data base
     
 def poolMotorOnHigh(message=None):
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    tmp = c.execute("select motor from pool").fetchone()[0];
+    tmp =  poolMotorState()
     if message is not None:
         lprint(message)
     lprint ("Pool pump is currently: ", tmp)
@@ -87,12 +90,9 @@ def poolMotorOnHigh(message=None):
         scheditem.add_job(poolMotorOnHigh, 'date', 
             run_date=datetime.now() + timedelta(minutes=1), 
             args=["Double Checking"])
-    dbconn.close() # close the data base
 
 def poolMotorOnLow(message=None):
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    tmp = c.execute("select motor from pool").fetchone()[0];
+    tmp =  poolMotorState()
     if message is not None:
         lprint(message)
     lprint ("Pool pump is currently: ", tmp)
@@ -102,7 +102,6 @@ def poolMotorOnLow(message=None):
         scheditem.add_job(poolMotorOnLow, 'date', 
             run_date=datetime.now() + timedelta(minutes=1), 
             args=["Double Checking"])
-    dbconn.close() # close the data base
     
 def fansRecirc():
     talkHTML(houseMonitor,"pCommand?command=preset recirc");
@@ -143,17 +142,24 @@ def testJob():
 logging.basicConfig()
 # Grab the values out of the rc file
 hv = getHouseValues()
-DATABASE = hv["database"]
-lprint("Using database ", DATABASE);
+
+# the database where I'm storing house stuff
+hdbName = hv["houseDatabase"]
+hdbHost = hv["houseHost"]
+hdbPassword = hv["housePassword"]
+hdbUser = hv["houseUser"]
+
 wemoController = hv["wemocontrol"]["ipAddress"] + ":" + \
                     str(hv["wemocontrol"]["port"])
 lprint("Wemo Controller is:", wemoController);
+
 houseMonitor = hv["monitorhouse"]["ipAddress"] + ":" + \
                     str(hv["monitorhouse"]["port"])
 lprint("House Monitor is:", houseMonitor);
+
 irisControl = hv["iriscontrol"]["ipAddress"] + ":" + \
                     str(hv["iriscontrol"]["port"])
-lprint("Iris Control is:", irisControl);
+lprint("Iris Controller is:", irisControl);
 
 #------------------Stuff I schedule to happen -----
 scheditem = BackgroundScheduler()
@@ -183,10 +189,6 @@ scheditem.add_job(poolMotorOnHigh, 'cron', hour=19, minute=2,args=["Start pool m
 
 # Specifically turn the pool motor on (low) to get some solar time
 # scheditem.add_job(poolMotorOnLow, 'cron', hour=7, minute=0,args=["Start pool motor (high)"])
-
-# Run the acid pump in the morning, every day
-# Acid pump shuts itself off automatically.
-scheditem.add_job(acidPumpOn, 'cron', hour=8, minute=0)
 
 # Turn the lights on by my bed at 9PM every day
 scheditem.add_job(bedroomLightOn, 'cron', hour=21, minute=0)

@@ -7,6 +7,7 @@ import datetime
 from datetime import timedelta
 import time
 import sqlite3
+import MySQLdb as mdb
 import sys
 import sysv_ipc
 import cherrypy
@@ -57,44 +58,72 @@ def processExists(procs):
             notFound.append(proc)
     return notFound
     
+def fixTime(incoming):
+    timeThing = time.strftime("%A, %B, %d, at %H:%M:%S", 
+        time.localtime(int(incoming[0])))
+    return (timeThing,)
+
 def checkUpdateTimes(items):
     notReporting = []
     dbconn = sqlite3.connect(DATABASE)
     c = dbconn.cursor()
+    try:
+        mdbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
+        mc = mdbconn.cursor()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
     collected = {}
     for item in items:
         if (item == 'thermostats'):
-            c.execute("select utime from thermostats where location = 'North';")
-            updateTime = c.fetchone()
-            collected.update({"Nthermo" : updateTime})
-            c.execute("select utime from thermostats where location = 'South';")
-            updateTime = c.fetchone()
-            collected.update({"Sthermo" : updateTime})
-        if (item == 'smartswitch'):
-            c.execute("select utime from smartswitch where name = 'refrigerator';")
-            updateTime = c.fetchone()
-            collected.update({"Refrigerator" : updateTime})
-            c.execute("select utime from smartswitch where name = 'freezer';")
-            updateTime = c.fetchone()
-            collected.update({"Freezer" : updateTime})
-            c.execute("select utime from smartswitch where name = 'garagefreezer';")
-            updateTime = c.fetchone()
-            collected.update({"GFreezer" : updateTime})
-        if (item == 'lights'):
-            c.execute("select utime from lights where name = 'outsidegarage';")
-            updateTime = c.fetchone()
-            collected.update({"outsidegarage" : updateTime})
-            c.execute("select utime from lights where name = 'frontporch';")
-            updateTime = c.fetchone()
-            collected.update({"frontporch" : updateTime})
-            c.execute("select utime from lights where name = 'cactusspot';")
-            updateTime = c.fetchone()
-            collected.update({"cactusspot" : updateTime})
+            try:
+                mc.execute("select utime from thermostats where location = 'North';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"Nthermo" : updateTime})
+                mc.execute("select utime from thermostats where location = 'South';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"Sthermo" : updateTime})
+            except mdb.Error, e:
+                lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+        elif (item == 'smartswitch'):
+            try:
+                mc.execute("select utime from smartswitch where name = 'refrigerator';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"Refrigerator" : updateTime})
+                mc.execute("select utime from smartswitch where name = 'freezer';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"Freezer" : updateTime})
+                mc.execute("select utime from smartswitch where name = 'garagefreezer';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"GFreezer" : updateTime})
+            except mdb.Error, e:
+                lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+        elif (item == 'lights'):
+            try:
+                mc.execute("select utime from wemo where name = 'outsidegarage';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"outsidegarage" : updateTime})
+                mc.execute("select utime from wemo where name = 'frontporch';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"frontporch" : updateTime})
+                mc.execute("select utime from wemo where name = 'cactusspot';")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"cactusspot" : updateTime})
+            except mdb.Error, e:
+                 lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+        elif (item in ['oldxively', 'power', 'pool', 'garage', 'septic']):
+            try:
+                mc.execute("select utime from {0};".format(item))
+                updateTime = fixTime(mc.fetchone())
+                collected.update({item : updateTime})
+            except mdb.Error, e:
+                 lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         else:
+            print "Old database usage ", item
             c.execute("select utime from '%s';"% item)
             updateTime = c.fetchone()
             collected.update({item : updateTime})
     dbconn.close()
+    mdbconn.close()
     now = datetime.datetime.now()
     for key, value in collected.items():
         print key, value
@@ -106,21 +135,15 @@ def checkUpdateTimes(items):
 
 def checkOtherThings():
     problemThings = []
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    #Check the Acid Pump level 
-    c.execute("select level from acidpump;")
-    level = c.fetchone()
-    if (level[0] != 'OK'):
-        problemThings.append("Acid Pump Low");
-    dbconn.close()
+    # I used to have special devices in here and may have
+    # to use it again. 
     return problemThings
     
 processList = ["updatexively.py", "updateoldxively.py",
                 "monitorhouse.py", "updategrovestream.py",
                 "updatets.py", "wemocontrol.py",
                 "events.py", "iriscontrol.py","updateemon.py"]
-recordList = ["acidpump","emoncms", "garage", "grovestream", 
+recordList = ["emoncms", "garage", "grovestream", 
                 "oldxively", "pool", "power", "septic", "thermostats", 
                 "thingspeak", "xively", "smartswitch", "lights"]
 
@@ -200,6 +223,12 @@ if __name__ == '__main__':
     hv = getHouseValues()
     # the database where I'm storing stuff
     DATABASE= hv["database"]
+    
+    dbName = hv["houseDatabase"]
+    dbHost = hv["houseHost"]
+    dbPassword = hv["housePassword"]
+    dbUser = hv["houseUser"]
+    
     # Get the ip address and port number you want to use
     # from the houserc file
     ipAddress=hv["healthcheck"]["ipAddress"]

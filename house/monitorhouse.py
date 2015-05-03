@@ -35,7 +35,7 @@ import shlex
 import cherrypy
 import json
 
-from houseutils import getHouseValues, lprint, dbTime
+from houseutils import getHouseValues, lprint, dbTime, dbTimeStamp
 
 # Global items that I want to keep track of
 CurrentPower = 0
@@ -79,12 +79,15 @@ def talkHTML(ip, command):
     
 #------------------------------------------------
 def controlThermo(whichOne, command):
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    c.execute("select address from thermostats "
-        "where location=?; ", (whichOne,))
-    thermoIp = c.fetchone()
-    dbconn.close
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("select address from thermostats "
+            "where location=%s; ", (whichOne,))
+        thermoIp = hc.fetchone()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close
     website = openSite("HTTP://" + thermoIp[0] + "/" + command)
     websiteHtml = website.read()
     return  websiteHtml
@@ -104,34 +107,36 @@ def ThermostatStatus():
     # so I have to open and close the database within
     # this routine
     #print(time.strftime("%A, %B %d at %H:%M:%S"))
-    # open the database and set up the cursor (I don't have a
-    # clue why a cursor is needed)
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
-    for whichOne in ['North', 'South']:
-        c.execute("select address from thermostats "
-            "where location=?; ", (whichOne,))
-        thermoIp = c.fetchone()
-        try:
-            status = getThermoStatus(thermoIp)
-        except:
-            break
-        #print whichOne + " reports: " + str(status)
-        c.execute("update thermostats set 'temp-reading' = ?, "
-                "status = ?, "
-                "'s-temp' = ?, "
-                "'s-mode' = ?, "
-                "'s-fan' = ?, "
-                "peak = ?,"
-                "utime = ?"
-                "where location = ?;",
-                    (status[0],status[1],
-                    status[2],status[3],
-                    status[4],status[5],
-                    dbTime(),
-                    whichOne))
-        dbconn.commit()
-    dbconn.close()
+    # open the database and set up the cursor 
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        for whichOne in ['North', 'South']:
+            hc.execute("select address from thermostats "
+                "where location=%s; ", (whichOne,))
+            thermoIp = hc.fetchone()
+            try:
+                status = getThermoStatus(thermoIp)
+            except:
+                break
+            #print whichOne + " reports: " + str(status)
+            hc.execute("update thermostats set `temp-reading` = %s, "
+                    "status = %s, "
+                    "`s-temp` = %s, "
+                    "`s-mode` = %s, "
+                    "`s-fan` = %s, "
+                    "peak = %s,"
+                    "utime = %s"
+                    "where location = %s;",
+                        (status[0],status[1],
+                        status[2],status[3],
+                        status[4],status[5],
+                        dbTimeStamp(),
+                        whichOne))
+            hdbconn.commit()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
 '''
 this is a call back function for the XBee network.  When a message
 comes in this function will get the data and put it on a queue.
@@ -180,44 +185,48 @@ def handlePacket(data):
         try:
             jData = json.loads(data['rf_data'][:-1])
             if "TempSensor" in jData.keys():
-                print jData
+                #print jData
                 #print "name       : ", jData["TempSensor"]["name"]
                 #print "command    : ", jData["TempSensor"]["command"]
                 #print "processor V: ", jData["TempSensor"]["voltage"]
                 #print "room  T    : ", jData["TempSensor"]["temperature"]
-                dbconn = sqlite3.connect(DATABASE)
-                c = dbconn.cursor()
-                c.execute("select count(*) from tempsensor where name = ?;", 
-                    (jData['TempSensor']['name'],))
-                count = c.fetchone()[0]
-                if count == 0:
-                    lprint ("Adding new TempSensor")
-                    c.execute("insert into TempSensor(name,"
-                        "pvolt, temp, utime)"
-                        "values (?, ?, ?, ?);",
-                        (jData["TempSensor"]["name"],
-                        jData["TempSensor"]["voltage"],
-                        jData["TempSensor"]["temperature"],
-                        dbTime()))
-                else:
-                    #lprint ("updating TempSensor ", jData['TempSensor']['name'])
-                    c.execute("update TempSensor set " 
-                        "pvolt = ?,"
-                        "temp = ?,"
-                        "utime = ? where name = ? ;",
-                        (jData['TempSensor']['voltage'],
-                        jData['TempSensor']['temperature'],
-                        dbTime(), 
-                        jData['TempSensor']['name']
-                        ))
-                dbconn.commit()
-                dbconn.close()
+                try:
+                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, 
+                        passwd=hdbPassword, db=hdbName)
+                    hc = hdbconn.cursor()
+                    hc.execute("select count(*) from tempsensor where name = %s;", 
+                        (jData['TempSensor']['name'],))
+                    count = hc.fetchone()[0]
+                    if count == 0:
+                        lprint ("Adding new tempSensor")
+                        hc.execute("insert into tempsensor(name,"
+                            "pvolt, temp, utime)"
+                            "values (%s, %s, %s, %s);",
+                            (jData["TempSensor"]["name"],
+                            jData["TempSensor"]["voltage"],
+                            jData["TempSensor"]["temperature"],
+                            dbTimeStamp()))
+                    else:
+                        #lprint ("updating tempsensor ", jData['TempSensor']['name'])
+                        hc.execute("update tempsensor set " 
+                            "pvolt = %s,"
+                            "temp = %s,"
+                            "utime = %s where name = %s ;",
+                            (jData['TempSensor']['voltage'],
+                            jData['TempSensor']['temperature'],
+                            dbTimeStamp(), 
+                            jData['TempSensor']['name']
+                            ))
+                    hdbconn.commit()
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                hdbconn.close()
                 if (jData['TempSensor']['command'] != 'nothing'):
                     #got a command from the sensor
                     talkHTML(irisControl,"command?whichone=monitor&what=toggle");
                
             if "Barometer" in  jData.keys():
-                print jData
+                #print jData
                 # Get the time sent with the readings and 
                 # adjust it since I send local time around the house
                 # for ease of conversion on the Arduinos
@@ -226,19 +235,22 @@ def handlePacket(data):
                 #         "Recorded Time is", jData['Barometer']['utime'],
                 #         "Which should be converted to",dbTime(jData['Barometer']['utime'])) 
                 # do database stuff
-                dbconn = mdb.connect(host=dbHost, user=dbUser, 
-                    passwd=dbPassword, db=dbName)
-                c = dbconn.cursor()
-                c.execute("insert into barometer (reading, utime)"
-                    "values(%s, %s);",
-                    (jData["Barometer"]["pressure"],
-                    jData["Barometer"]["utime"]))
-                c.execute("insert into ftemperature (reading, utime)"
-                    "values(%s, %s);",
-                    (jData["Barometer"]["temperature"],
-                    jData["Barometer"]["utime"]))
-                dbconn.commit()
-                dbconn.close()
+                try:
+                    wdbconn = mdb.connect(host=wdbHost, user=wdbUser, 
+                        passwd=wdbPassword, db=wdbName)
+                    wc = wdbconn.cursor()
+                    wc.execute("insert into barometer (reading, utime)"
+                        "values(%s, %s);",
+                        (jData["Barometer"]["pressure"],
+                        jData["Barometer"]["utime"]))
+                    wc.execute("insert into ftemperature (reading, utime)"
+                        "values(%s, %s);",
+                        (jData["Barometer"]["temperature"],
+                        jData["Barometer"]["utime"]))
+                    wdbconn.commit()
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                wdbconn.close()
         except mdb.Error, e:
             lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             return
@@ -249,64 +261,53 @@ def handlePacket(data):
         except ValueError: # Old style Data received
             rxList = data['rf_data'].split(',')
             
-            if rxList[0] == 'Status': #This is the status send by the old controller
-                # remember, it's sent as a string by the XBees
-                #print("Got Old Controller Status Packet")
-                tmp = int(rxList[1]) # index 1 is current power
-                if tmp > 0:  # Things can happen to cause this
-                    # and I don't want to record a zero
-                    CurrentPower = tmp
-                    DayMaxPower = max(DayMaxPower,tmp)
-                    DayMinPower = min(DayMinPower,tmp)
-                    tmp = int(rxList[3]) # index 3 is outside temp
-                    CurrentOutTemp = tmp
-                    DayOutMaxTemp = max(DayOutMaxTemp, tmp) 
-                    DayOutMinTemp = min(DayOutMinTemp, tmp)
-                    dbconn = sqlite3.connect(DATABASE)
-                    c = dbconn.cursor()
-                    # do database stuff
-                    c.execute("update housestatus " 
-                        "set curentpower = ?, "
-                        "daymaxpower = ?,"
-                        "dayminpower = ?,"
-                        "currentouttemp = ?,"
-                        "dayoutmaxtemp = ?,"
-                        "dayoutmintemp = ?,"
-                        "utime = ?;",
-                        (CurrentPower, DayMaxPower, DayMinPower,
-                        CurrentOutTemp, DayOutMaxTemp,
-                        DayOutMinTemp,
-                        dbTime()))
-                    dbconn.commit()
-                    dbconn.close()
+            if rxList[0] == 'Status': #This was the status send by the old controller
+                pass
             elif rxList[0] == 'AcidPump':
-                # This is the Acid Pump Status packet
-                # it has 'AcidPump,time_t,status,level,#times_sent_message
-                # I only want to save status, level, and the last
-                # time it reported in to the database for now
-                #print("Got Acid Pump Packet")
-                dbconn = sqlite3.connect(DATABASE)
-                c = dbconn.cursor()
-                c.execute("update acidpump set status = ?, "
-                    "'level' = ?,"
-                    "utime = ?;",
-                    (rxList[2], rxList[3],
-                    dbTime()))
-                dbconn.commit()
-                dbconn.close()
+                # I finally gave up on having this
+                # I just drop a chlorine tablet in the
+                # pool when I check the skimmer.
+                pass
             elif rxList[0] == '?\r': #incoming request for a house status message
                 # Status message that is broadcast to all devices consists of:
                 # power,time_t,outsidetemp,insidetemp,poolmotor  ---more to come someday
                 # all fields are ascii with poolmotor being {Low,High,Off}
                 #print("Got Status Request Packet")
-                dbconn = sqlite3.connect(DATABASE)
-                c = dbconn.cursor()
-                spower = int(float(c.execute("select rpower from power").fetchone()[0]))
-                stime = int((time.time() - (7*3600)))
-                sotemp = int(c.execute("select currenttemp from xbeetemp").fetchone()[0])
-                sitemp = int(c.execute("select avg(\"temp-reading\") from thermostats").fetchone()[0])
-                spoolm = c.execute("select motor from pool").fetchone()[0]
-                dbconn.close()
+                spoolm = 1
+                # Collect data from the two databases involved
+                # the 2 mysql databases on the nas
+                
+                # now the house mysql database
+                try:
+                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+                    hc = hdbconn.cursor()
+                    # The last power reading taken
+                    hc.execute("select rpower from power")
+                    spower = int(float(hc.fetchone()[0]))
+                    # The last report from the pool
+                    hc.execute("select motor from pool")
+                    spoolm = hc.fetchone()[0]
+                    hc.execute("select avg(`temp-reading`) from thermostats")
+                    sitemp = int(hc.fetchone()[0])
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                hdbconn.close()
+                
+                # now the weather station mysql database
+                try:
+                    wdbconn = mdb.connect(host=wdbHost, user=wdbUser, passwd=wdbPassword, db=wdbName)
+                    wc = wdbconn.cursor()
+                    # The outside temperature is held in weather (naturally)
+                    wc.execute("select reading from ftemperature")
+                    sotemp = int(wc.fetchone()[0])
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                wdbconn.close()
+                
+                # and finally stuff that is live, like the time
+                stime = int((time.time() - time.timezone))
+                
+                # I can finally construct the reply
                 sstring = "Status,%d,%d,%d,%d,%s\r" %(spower,stime,sotemp,sitemp,spoolm)
                 #print sstring.encode('ascii','ignore') #for debugging
                 sendPacket(BROADCAST, sstring.encode('ascii','ignore'))
@@ -320,16 +321,19 @@ def handlePacket(data):
                                     # not a command to the garage
                     #print "updating garage in database"
                     # Now stick it in the database
-                    dbconn = sqlite3.connect(DATABASE)
-                    c = dbconn.cursor()
-                    c.execute("update garage set door1 = ?, "
-                        "door2 = ?,"
-                        "waterh = ?,"
-                        "utime = ?;",
-                        (rxList[1], rxList[2],rxList[3].rstrip(),
-                        dbTime()))
-                    dbconn.commit()
-                    dbconn.close()
+                    try:
+                        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+                        hc = hdbconn.cursor()
+                        hc.execute("update garage set door1 = %s, "
+                            "door2 = %s,"
+                            "waterh = %s,"
+                            "utime = %s;",
+                            (rxList[1], rxList[2],rxList[3].rstrip(),
+                            dbTimeStamp()))
+                        hdbconn.commit()
+                    except mdb.Error, e:
+                        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                    hdbconn.close()
             elif rxList[0] == 'Pool':
                 #print("Got Pool Packet")
                 #print(rxList)
@@ -340,21 +344,24 @@ def handlePacket(data):
                 solar = rxList[5].split(' ')[1]
                 ptemp = rxList[6].split(' ')[1]
                 atemp = rxList[7].split(' ')[1]
-                dbconn = sqlite3.connect(DATABASE)
-                c = dbconn.cursor()
-                c.execute("update pool set motor = ?, "
-                    "waterfall = ?,"
-                    "light = ?,"
-                    "fountain = ?,"
-                    "solar = ?,"
-                    "ptemp = ?,"
-                    "atemp = ?,"
-                    "utime = ?;",
-                    (motor, waterfall, light, fountain, 
-                    solar, ptemp, atemp,
-                    dbTime()))
-                dbconn.commit()
-                dbconn.close()
+                try:
+                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+                    hc = hdbconn.cursor()
+                    hc.execute("update pool set motor = %s, "
+                        "waterfall = %s,"
+                        "light = %s,"
+                        "fountain = %s,"
+                        "solar = %s,"
+                        "ptemp = %s,"
+                        "atemp = %s,"
+                        "utime = %s;",
+                        (motor, waterfall, light, fountain, 
+                        solar, ptemp, atemp,
+                        dbTimeStamp()))
+                    hdbconn.commit()
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                hdbconn.close()
             elif rxList[0] == 'Power':
                 #print("Got Power Packet")
                 #print(rxList)
@@ -376,30 +383,33 @@ def handlePacket(data):
                 #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
                 #   %(rpower, apower, pfactor, voltage, current, frequency))
                 try:
-                    dbconn = sqlite3.connect(DATABASE)
-                    c = dbconn.cursor()
-                    c.execute("update power set rpower = ?, "
-                        "apower = ?,"
-                        "pfactor = ?,"
-                        "voltage = ?,"
-                        "current = ?,"
-                        "frequency = ?,"
-                        "utime = ?;",
+                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+                    hc = hdbconn.cursor()
+                    hc.execute("update power set rpower = %s, "
+                        "apower = %s,"
+                        "pfactor = %s,"
+                        "voltage = %s,"
+                        "current = %s,"
+                        "frequency = %s,"
+                        "utime = %s;",
                         (rpower, apower, pfactor, voltage, current, 
-                        frequency, dbTime()))
-                    dbconn.commit()
-                except:
-                    print "Error: Database error"
-                dbconn.close()
+                        frequency, dbTimeStamp()))
+                    hdbconn.commit()
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                hdbconn.close()
             elif rxList[0] == 'Septic':
                 #print("Got Septic Packet")
                 #print(rxList)
-                dbconn = sqlite3.connect(DATABASE)
-                c = dbconn.cursor()
-                c.execute("update septic set level = ?, utime = ?;",
-                    (rxList[1].rstrip(), dbTime()))
-                dbconn.commit()
-                dbconn.close()
+                try:
+                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+                    hc = hdbconn.cursor()
+                    hc.execute("update septic set level = %s, utime = %s;",
+                        (rxList[1].rstrip(), dbTimeStamp()))
+                    hdbconn.commit()
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                hdbconn.close()
             elif rxList[0] == 'Freezer':
                 pass
                 #lprint ("Got a Freezer Packet", rxList)
@@ -409,23 +419,9 @@ def handlePacket(data):
                     print item,
                 print
                 pass
-    elif data['id'] == 'rx_io_data_long_addr':
-        #print ('Got Outside Thermometer Packet')
-        tmp = data['samples'][0]['adc-1']
-        # Don't even ask about the calculation below
-        # it was a real pain in the butt to figure out
-        otemp = (((tmp * 1200.0) / 1024.0) / 10.0) * 2.0
-        CurrentOutTemp = otemp
-        DayOutMaxTemp = max(DayOutMaxTemp, CurrentOutTemp)  
-        DayOutMinTemp = min(DayOutMinTemp, CurrentOutTemp)
-        dbconn = sqlite3.connect(DATABASE)
-        c = dbconn.cursor()
-        c.execute("update xbeetemp set 'currenttemp' = ?, "
-            "utime = ?;",
-            (int(otemp),
-            dbTime()))
-        dbconn.commit()
-        dbconn.close()
+    elif data['id'] == 'rx_io_data_long_addr': # saving this in case I need one
+        #print ('i/o data packet')
+        pass
     else:
         print ('Error: Unimplemented XBee frame type ' + data['id'])
 
@@ -623,11 +619,17 @@ ser = serial.Serial(XBEEPORT, XBEEBAUD_RATE)
 DATABASE = hv["database"]
 
 # The database where weather data is stored
-dbName = hv["weatherDatabase"]
-dbHost = hv["weatherHost"]
-dbPassword = hv["weatherPassword"]
-dbUser = hv["weatherUser"]
+wdbName = hv["weatherDatabase"]
+wdbHost = hv["weatherHost"]
+wdbPassword = hv["weatherPassword"]
+wdbUser = hv["weatherUser"]
 
+# the database where I'm storing house stuff
+hdbName = hv["houseDatabase"]
+hdbHost = hv["houseHost"]
+hdbPassword = hv["housePassword"]
+hdbUser = hv["houseUser"]
+ 
 # Get the ip address and port number you want to use
 # from the houserc file
 ipAddress= hv["monitorhouse"]["ipAddress"]

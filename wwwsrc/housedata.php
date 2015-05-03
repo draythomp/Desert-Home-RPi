@@ -19,101 +19,93 @@ $dbTimeout = 100;
 	die();
 }
  */
-/*
-Having everything happen on second boundaries can cause the 
-database to be busy when all the processes fire at once. So, 
-delaying a call when it is busy will keep database errors to 
-a minimum.  Actually, the first delay will almost certainly 
-assure the rest of them will execute just fine, since the 
-second boundary will pass.
-*/
-function timedQuerySingle($statement){
-	global $db, $dbTimeout;
 
-	if ($db->busyTimeout($dbTimeout)){
-		$result = $db->querySingle($statement);
-		}
-	else{
-		error_log($statement);
-		}
-	$db->busyTimeout(0);
-	return ($result);
-	}
-    
+function mysqlGetIt($statement, $conn){
+    $result = mysql_query($statement, $conn);
+    if (!$result){
+        echo mysql_error($conn);
+    }
+    $row = mysql_fetch_array($result, MYSQL_BOTH);
+    if (!$result){
+        echo mysql_error($conn);
+    }
+    return ($row[0]);
+}
+
+#First, get the .houserc file for the parameters    
 $config = file_get_contents("/home/pi/.houserc");
-$dbName = json_decode($config,true)["database"];
-$db= new SQLite3($dbName);
-$dbTimeout = json_decode($config,true)["databaseLockDelay"];
-    
+
+# The house database on the NAS
+$hdbName = json_decode($config,true)["houseDatabase"];
+$hdbHost = json_decode($config,true)["houseHost"];
+$hdbPassword = json_decode($config,true)["housePassword"];
+$hdbUser = json_decode($config,true)["houseUser"];
+$hdb = mysql_connect($hdbHost,$hdbUser, $hdbPassword);
+if (!$hdb){
+    die('Unable to connect to database! ' . mysql_error());
+}
+mysql_select_db($hdbName, $hdb) or die('Unable to open database!' . mysql_error());
+
 # Get the various items out of the data base
 # This could be one giant array() statement
 # and actually save cpu , but getting them as
 # variables first makes debugging and array 
 # construction easier.  At least initially.
-#$power = $db->querySingle("select rpower from power;");
-$power = timedQuerySingle("select rpower from power;");
-$outtemp = timedQuerySingle('select "temperature" from "Barometer";');
+$power = mysqlGetIt(
+	"select rpower from power;", $hdb);
 # Current status of the two thermostats
-$ntm = timedQuerySingle(
-	'select status from thermostats where location="North";');
-$stm = timedQuerySingle(
-	'select status from thermostats where location="South";');
-$ntt = timedQuerySingle(
-	'select "temp-reading" from thermostats where location="North";');
-$stt = timedQuerySingle(
-	'select "temp-reading" from thermostats where location="South";');
+$ntm = mysqlGetIt(
+	'select status from thermostats where location="North";', $hdb);
+$stm = mysqlGetIt(
+	'select status from thermostats where location="South";', $hdb);
+$ntt = mysqlGetIt(
+	'select `temp-reading` from thermostats where location="North";', $hdb);
+$stt = mysqlGetIt(
+	'select `temp-reading` from thermostats where location="South";', $hdb);
 # The North and South Thermostat setting (temp, mode, fan)
-$ntms = timedQuerySingle(
-	'select "s-mode" from thermostats where location="North";');
-$stms = timedQuerySingle(
-	'select "s-mode" from thermostats where location="South";');
-$ntfs = timedQuerySingle(
-	'select "s-fan" from thermostats where location="North";');
-$stfs = timedQuerySingle(
-	'select "s-fan" from thermostats where location="South";');
-$ntts = timedQuerySingle(
-	'select "s-temp" from thermostats where location="North";');
-$stts = timedQuerySingle(
-	'select "s-temp" from thermostats where location="South";');
-$aps = timedQuerySingle(
-	'select "status" from acidpump;');
-$apl = timedQuerySingle(
-	'select "level" from acidpump;');
-$gd1 = timedQuerySingle(
-	'select "door1" from garage;');
-$gd2 = timedQuerySingle(
-	'select "door2" from garage;');
-$wh = timedQuerySingle(
-	'select "waterh" from garage;');
-$pm = timedQuerySingle(
-	'select "motor" from pool;');
-$pw = timedQuerySingle(
-	'select "waterfall" from pool;');
-$pl = timedQuerySingle(
-	'select "light" from pool;');
-$pf = timedQuerySingle(
-	'select "fountain" from pool;');
-$ps = timedQuerySingle(
-	'select "solar" from pool;');
-$pt = timedQuerySingle(
-	'select "ptemp" from pool;');
-$stl = timedQuerySingle(
-	'select "level" from septic;');
-$lfp = timedQuerySingle(
-	'select "status" from "lights" where name="frontporch";');
-$log = timedQuerySingle(
-	'select "status" from "lights" where name="outsidegarage";');
-$lcs = timedQuerySingle(
-	'select "status" from "lights" where name="cactusspot";');
-$lp = timedQuerySingle(
-	'select "status" from "lights" where name="patio";');
-$ws = timedQuerySingle(
-	'select "json" from "weather";');
-$bp = timedQuerySingle(
-    'select "pressure" from "Barometer";');
-$mb = timedQuerySingle(
-	'select "barometer" from "midnight";');
-$db->close();
+$ntms = mysqlGetIt(
+	'select `s-mode` from thermostats where location="North";', $hdb);
+$stms = mysqlGetIt(
+	'select `s-mode` from thermostats where location="South";', $hdb);
+$ntfs = mysqlGetIt(
+	'select `s-fan` from thermostats where location="North";', $hdb);
+$stfs = mysqlGetIt(
+	'select `s-fan` from thermostats where location="South";', $hdb);
+$ntts = mysqlGetIt(
+	'select `s-temp` from thermostats where location="North";', $hdb);
+$stts = mysqlGetIt(
+	'select `s-temp` from thermostats where location="South";', $hdb);
+# Garage stuff
+$gd1 = mysqlGetIt(
+	'select door1 from garage;', $hdb);
+$gd2 = mysqlGetIt(
+	'select door2 from garage;', $hdb);
+$wh = mysqlGetIt(
+	'select waterh from garage;', $hdb);
+# Pool stuff
+$pm = mysqlGetIt(
+	'select motor from pool;', $hdb);
+$pw = mysqlGetIt(
+	'select waterfall from pool;', $hdb);
+$pl = mysqlGetIt(
+	'select light from pool;', $hdb);
+$pf = mysqlGetIt(
+	'select fountain from pool;', $hdb);
+$ps = mysqlGetIt(
+	'select solar from pool;', $hdb);
+$pt = mysqlGetIt(
+	'select ptemp from pool;', $hdb);
+$stl = mysqlGetIt(
+	'select level from septic;', $hdb);
+# The Wemo switches
+$lfp = mysqlGetIt(
+	'select status from wemo where name="frontporch";', $hdb);
+$log = mysqlGetIt(
+	'select status from wemo where name="outsidegarage";', $hdb);
+$lcs = mysqlGetIt(
+	'select status from wemo where name="cactusspot";', $hdb);
+$lp = mysqlGetIt(
+	'select status from wemo where name="patio";', $hdb);
 
 # The weather is being handled by a different process on a 
 # different machine. So, get the address and port number for
@@ -127,16 +119,16 @@ $response = file_get_contents("http://$stationIp:$stationPort/status");
 $ws = json_decode($response,true);
 # Now, construct an array to use in the  json_encode()
 # statement at the bottom.
-$giveback = array('power' => $power, 'outsidetemp'=>$outtemp,
+$giveback = array('power' => $power, 
 	'ntm'=>$ntm, 'stm'=>$stm, 'ntt'=>$ntt, 'stt'=>$stt,
 	'ntms'=>$ntms, 'stms'=>$stms, 'ntfs'=>$ntfs, 'stfs'=>$stfs,
 	'ntts'=>$ntts, 'stts'=>$stts,
-	'aps'=>$aps, 'apl'=>$apl,
 	'gd1'=>$gd1, 'gd2'=>$gd2, 'wh'=>$wh,
 	'pm'=>$pm, 'pw'=>$pw, 'pl'=>$pl, 'pf'=>$pf, 'ps'=>$ps, 'pt'=>$pt,
 	'stl'=>$stl,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
     # The weather station data
+    'outsidetemp'=>$ws["currentOutsideTemp"],
     'ws'=>$ws["windSpeed"],'wd'=>$ws["windDirectionC"],
     'hy'=>$ws["humidity"],'rtt'=>$ws["roofTemperature"],
     'bp'=>$ws["currentBarometric"],'mb'=>$ws["midnightBarometric"],
