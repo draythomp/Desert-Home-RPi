@@ -26,7 +26,6 @@ import time
 import serial
 import signal
 import Queue
-import sqlite3
 import MySQLdb as mdb
 import sys
 import urllib2
@@ -431,10 +430,8 @@ def handlePacket(data):
 # periodically to simply put a message in the log file.
 # This helps me keep track of what's going on.
 def printHouseData():
-    lprint('Power Data: Current %s, Min %s, Max %s'
-        %(int(float(CurrentPower)), int(float(DayMinPower)), int(float(DayMaxPower))))
-    lprint('Outside Temp: Current %s, Min %s, Max %s'
-        %(int(float(CurrentOutTemp)), int(float(DayOutMinTemp)), int(float(DayOutMaxTemp))))
+    lprint('Power Data: Current %s'
+        %(int(float(CurrentPower))))
     print
 
 

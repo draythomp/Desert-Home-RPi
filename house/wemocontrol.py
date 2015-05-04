@@ -12,7 +12,6 @@ import sys
 import json
 import re
 import argparse
-#import sqlite3
 import MySQLdb as mdb
 import cherrypy
 from houseutils import lprint, getHouseValues, timer, checkTimer, dbTimeStamp

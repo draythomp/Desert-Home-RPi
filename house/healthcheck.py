@@ -6,7 +6,6 @@ import logging
 import datetime
 from datetime import timedelta
 import time
-import sqlite3
 import MySQLdb as mdb
 import sys
 import sysv_ipc
@@ -65,8 +64,6 @@ def fixTime(incoming):
 
 def checkUpdateTimes(items):
     notReporting = []
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
     try:
         mdbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
         mc = mdbconn.cursor()
@@ -110,19 +107,13 @@ def checkUpdateTimes(items):
                 collected.update({"cactusspot" : updateTime})
             except mdb.Error, e:
                  lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-        elif (item in ['oldxively', 'power', 'pool', 'garage', 'septic']):
+        else:
             try:
                 mc.execute("select utime from {0};".format(item))
                 updateTime = fixTime(mc.fetchone())
                 collected.update({item : updateTime})
             except mdb.Error, e:
                  lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-        else:
-            print "Old database usage ", item
-            c.execute("select utime from '%s';"% item)
-            updateTime = c.fetchone()
-            collected.update({item : updateTime})
-    dbconn.close()
     mdbconn.close()
     now = datetime.datetime.now()
     for key, value in collected.items():
@@ -139,13 +130,10 @@ def checkOtherThings():
     # to use it again. 
     return problemThings
     
-processList = ["updatexively.py", "updateoldxively.py",
-                "monitorhouse.py", "updategrovestream.py",
-                "updatets.py", "wemocontrol.py",
-                "events.py", "iriscontrol.py","updateemon.py"]
-recordList = ["emoncms", "garage", "grovestream", 
-                "oldxively", "pool", "power", "septic", "thermostats", 
-                "thingspeak", "xively", "smartswitch", "lights"]
+processList = ["monitorhouse.py", "wemocontrol.py", "iriscontrol.py",
+                "events.py", "updateoldxively.py"]
+recordList = ["garage", "pool", "power", "septic", "thermostats", 
+                "smartswitch", "lights", "oldxively"]
 
 def monitorTheMonitor():
     #Check to see if all the processes are running
@@ -191,8 +179,7 @@ def handleCommand(command):
         if (what == 'all'):
             lprint ("Doing a master reset")
             processes = ["monitorhouse", "houseevents", "wemocontrol",
-                    "updateemon", "updategrovestream", "updatets", "updatexively",
-                    "updateoldxively", "watchappliance"]
+                "updateoldxively", "watchappliance", "iriscontrol"]
             for process in processes:
                 fixProcess(process)
         else:

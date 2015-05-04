@@ -7,7 +7,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 import logging
 import time
-import sqlite3
 import MySQLdb as mdb
 from houseutils import getHouseValues, lprint, dbTimeStamp
 
@@ -46,8 +45,6 @@ def updateXively():
     # it's easy to convert
     now = datetime.datetime.utcnow()
     # open the database
-    dbconn = sqlite3.connect(DATABASE)
-    c = dbconn.cursor()
     try:
         wdbconn = mdb.connect(host=wdbHost, user=wdbUser, passwd=wdbPassword, db=wdbName)
         wc = wdbconn.cursor()
@@ -67,7 +64,8 @@ def updateXively():
     # However, I noticed that fetchone() returns a tuple
     # with only one value in it (value,) which means
     # I have to get at it with a [0].  
-    tmp = c.execute("select motor from pool").fetchone()[0];
+    hc.execute("select motor from pool")
+    tmp = hc.fetchone()[0]
     if (tmp == 'High'): # a little special handling for the pool motor
         motor = 2
     elif (tmp == 'Low'):
