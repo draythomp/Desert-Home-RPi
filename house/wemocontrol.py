@@ -225,8 +225,11 @@ def get(whichone):
     '''
     resp = sendCommand('GetBinaryState', whichone, {})
     if resp is not None:
-        tagValue = extractSingleTag(resp, 'BinaryState').split('|')[0]
-        return 'Off' if tagValue == '0' else 'On'
+        try:
+            tagValue = extractSingleTag(resp, 'BinaryState').split('|')[0]
+            return 'Off' if tagValue == '0' else 'On'
+        except:
+            lprint("Couldn't get BinaryState")
     return 'Off'
 
 def on(whichone):
@@ -328,6 +331,8 @@ def handleCommand(command):
         toggle("cactusspot")
     elif (c[0] == 'patioToggle'):
         toggle("patio")
+    elif (c[0] == 'patioOff'):
+        off('patio');
     else:
         lprint("Weird command = " + str(c))
 
@@ -351,14 +356,20 @@ class WemoSC(object):
         status = "<strong>Current Wemo Light Switch Status</strong><br /><br />"
         for item in switches:
             status += item["name"] +" is " + get(item["name"]) + "&nbsp;&nbsp;"
-            status += '<a href="wemocommand?whichone='+item["name"]+'"><button>Toggle</button></a>'
+            status += '<a href="wemocommand?whichone='+ item["name"] +'&what=On"><button>On</button></a>'
+            status += '<a href="wemocommand?whichone='+ item["name"] +'&what=Off"><button>Off</button></a>'
+            status += '<a href="wemocommand?whichone='+ item["name"] +'&what=Toggle"><button>Toggle</button></a>'
             status += "<br />"
         return status
         
     @cherrypy.expose
-    def wemocommand(self, whichone):
-        # first change the light state
-        toggle(whichone)
+    def wemocommand(self, whichone, what):
+        if ( what.lower() == 'on'):
+            on(whichone)
+        if (what.lower() == "off"):
+            off(whichone)
+        if (what.lower() == "toggle"):
+            toggle(whichone)
         # now reload the index page to tell the user
         raise cherrypy.InternalRedirect('/index')
 

@@ -27,23 +27,15 @@ import serial
 import signal
 import Queue
 import MySQLdb as mdb
-import sys
+import sys, os
 import urllib2
 import BaseHTTPServer
 import shlex
 import cherrypy
 import json
+import paho.mqtt.client as mqtt
 
 from houseutils import getHouseValues, lprint, dbTime, dbTimeStamp
-
-# Global items that I want to keep track of
-CurrentPower = 0
-DayMaxPower = 0
-DayMinPower = 50000
-CurrentOutTemp = 0
-DayOutMaxTemp = -50
-DayOutMinTemp = 200
-
 #-------------------------------------------------
 
 def openSite(Url):
@@ -163,13 +155,23 @@ passed it to this routine, now we can take it apart and see
 what is going on ... whew!
 '''
 def handlePacket(data):
-    global CurrentPower, DayMaxPower, DayMinPower
-    global CurrentOutTemp, DayOutMaxTemp, DayOutMinTemp
 
+    # Send the packet to mqtt for debugging if needed
+    packet = ""
+    for key, value in data.iteritems():
+        if key in ["rf_data","id"]:
+            packet += key + " "
+            packet += value + ", "
+        else:
+            packet += key + " "
+            packet += "".join("%02x " % ord(b) for b in data[key]) + ", "
+    err = mqttc.publish("Desert-Home/XBee/Receive",packet)
+    if err[0] != 0:
+        lprint("got error {} on publish".format(err[0]))
     #print data # for debugging so you can see things
     # this packet is returned every time you do a transmit
     # (can be configured out), to tell you that the XBee
-    # actually send the darn thing
+    # actually sent the darn thing
     if data['id'] == 'tx_status':
         if ord(data['deliver_status']) != 0:
             print 'Transmit error = ',
@@ -182,80 +184,35 @@ def handlePacket(data):
         # device.  I'm converting them one at a time
         # to send JSON strings to the house controller
         try:
+            #print data['rf_data']
             jData = json.loads(data['rf_data'][:-1])
             if "TempSensor" in jData.keys():
-                #print jData
-                #print "name       : ", jData["TempSensor"]["name"]
-                #print "command    : ", jData["TempSensor"]["command"]
-                #print "processor V: ", jData["TempSensor"]["voltage"]
-                #print "room  T    : ", jData["TempSensor"]["temperature"]
-                try:
-                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, 
-                        passwd=hdbPassword, db=hdbName)
-                    hc = hdbconn.cursor()
-                    hc.execute("select count(*) from tempsensor where name = %s;", 
-                        (jData['TempSensor']['name'],))
-                    count = hc.fetchone()[0]
-                    if count == 0:
-                        lprint ("Adding new tempSensor")
-                        hc.execute("insert into tempsensor(name,"
-                            "pvolt, temp, utime)"
-                            "values (%s, %s, %s, %s);",
-                            (jData["TempSensor"]["name"],
-                            jData["TempSensor"]["voltage"],
-                            jData["TempSensor"]["temperature"],
-                            dbTimeStamp()))
-                    else:
-                        #lprint ("updating tempsensor ", jData['TempSensor']['name'])
-                        hc.execute("update tempsensor set " 
-                            "pvolt = %s,"
-                            "temp = %s,"
-                            "utime = %s where name = %s ;",
-                            (jData['TempSensor']['voltage'],
-                            jData['TempSensor']['temperature'],
-                            dbTimeStamp(), 
-                            jData['TempSensor']['name']
-                            ))
-                    hdbconn.commit()
-                except mdb.Error, e:
-                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-                hdbconn.close()
-                if (jData['TempSensor']['command'] != 'nothing'):
-                    #got a command from the sensor
-                    talkHTML(irisControl,"command?whichone=monitor&what=toggle");
-               
+                #pass this off to the mqtt server
+                err = mqttc.publish("Desert-Home/Device/TempSensor",data['rf_data'][:-1],retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
             if "Barometer" in  jData.keys():
                 #print jData
-                # Get the time sent with the readings and 
-                # adjust it since I send local time around the house
-                # for ease of conversion on the Arduinos
-                #lprint ("Barometric Pressure is", jData['Barometer']['pressure'],
-                #        "Temperature is", jData['Barometer']['temperature'],
-                #         "Recorded Time is", jData['Barometer']['utime'],
-                #         "Which should be converted to",dbTime(jData['Barometer']['utime'])) 
-                # do database stuff
-                try:
-                    wdbconn = mdb.connect(host=wdbHost, user=wdbUser, 
-                        passwd=wdbPassword, db=wdbName)
-                    wc = wdbconn.cursor()
-                    wc.execute("insert into barometer (reading, utime)"
-                        "values(%s, %s);",
-                        (jData["Barometer"]["pressure"],
-                        jData["Barometer"]["utime"]))
-                    wc.execute("insert into ftemperature (reading, utime)"
-                        "values(%s, %s);",
-                        (jData["Barometer"]["temperature"],
-                        jData["Barometer"]["utime"]))
-                    wdbconn.commit()
-                except mdb.Error, e:
-                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-                wdbconn.close()
+                # pass this off to the mqtt server
+                # I put a cr at the end so it displays nicely on arduino
+                err = mqttc.publish("Desert-Home/Device/Barometer",data['rf_data'][:-1],retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
+            if "PowerMon" in  jData.keys():
+                #print jData
+                err = mqttc.publish("Desert-Home/Device/PowerMon",data['rf_data'][:-1],retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
         except mdb.Error, e:
             lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             return
         except KeyError:
             lprint("KeyError doing json decode")
             lprint(jData)
+            return
+        except AttributeError, e:
+            lprint ("AttributeError, json decode")
+            lprint(data)
             return
         except ValueError: # Old style Data received
             rxList = data['rf_data'].split(',')
@@ -274,9 +231,6 @@ def handlePacket(data):
                 #print("Got Status Request Packet")
                 spoolm = 1
                 # Collect data from the two databases involved
-                # the 2 mysql databases on the nas
-                
-                # now the house mysql database
                 try:
                     hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
                     hc = hdbconn.cursor()
@@ -297,7 +251,8 @@ def handlePacket(data):
                     wdbconn = mdb.connect(host=wdbHost, user=wdbUser, passwd=wdbPassword, db=wdbName)
                     wc = wdbconn.cursor()
                     # The outside temperature is held in weather (naturally)
-                    wc.execute("select reading from ftemperature")
+                    wc.execute("select reading from ftemperature where utime = "
+                        "(select max(utime) from ftemperature);")
                     sotemp = int(wc.fetchone()[0])
                 except mdb.Error, e:
                     lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
@@ -315,24 +270,9 @@ def handlePacket(data):
                 pass
             elif rxList[0] == 'Garage':
                 #print("Got Garage Packet")
-                #print(rxList)
-                if len(rxList) > 2: #this means it's a status from the garage
-                                    # not a command to the garage
-                    #print "updating garage in database"
-                    # Now stick it in the database
-                    try:
-                        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
-                        hc = hdbconn.cursor()
-                        hc.execute("update garage set door1 = %s, "
-                            "door2 = %s,"
-                            "waterh = %s,"
-                            "utime = %s;",
-                            (rxList[1], rxList[2],rxList[3].rstrip(),
-                            dbTimeStamp()))
-                        hdbconn.commit()
-                    except mdb.Error, e:
-                        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-                    hdbconn.close()
+                err = mqttc.publish("Desert-Home/Device/Garage",data['rf_data'][:-1],retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
             elif rxList[0] == 'Pool':
                 #print("Got Pool Packet")
                 #print(rxList)
@@ -357,42 +297,6 @@ def handlePacket(data):
                         (motor, waterfall, light, fountain, 
                         solar, ptemp, atemp,
                         dbTimeStamp()))
-                    hdbconn.commit()
-                except mdb.Error, e:
-                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-                hdbconn.close()
-            elif rxList[0] == 'Power':
-                #print("Got Power Packet")
-                #print(rxList)
-                # I didn't really need to put these into variables, 
-                # I could have used the strings directly, but when
-                # I came back in a year or two to this code, I 
-                # wouldn't have a clue what was going on.  By 
-                # putting them in variables (less efficient), I 
-                # make my life easier in the future.
-                rpower = float(rxList[1])
-                CurrentPower = rpower
-                DayMaxPower = max(DayMaxPower,CurrentPower)
-                DayMinPower = min(DayMinPower,CurrentPower)
-                apower = float(rxList[2])
-                pfactor = float(rxList[3])
-                voltage = float(rxList[4])
-                current = float(rxList[5])
-                frequency = float(rxList[6].rstrip())
-                #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
-                #   %(rpower, apower, pfactor, voltage, current, frequency))
-                try:
-                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
-                    hc = hdbconn.cursor()
-                    hc.execute("update power set rpower = %s, "
-                        "apower = %s,"
-                        "pfactor = %s,"
-                        "voltage = %s,"
-                        "current = %s,"
-                        "frequency = %s,"
-                        "utime = %s;",
-                        (rpower, apower, pfactor, voltage, current, 
-                        frequency, dbTimeStamp()))
                     hdbconn.commit()
                 except mdb.Error, e:
                     lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
@@ -426,14 +330,15 @@ def handlePacket(data):
 
 #-------------------------------------------------
 
+def logIt(text):
+    mqttc.publish("Desert-Home/Log","{}, {}".format(processName, text));
+    
 # This little status routine gets run by scheduler
 # periodically to simply put a message in the log file.
 # This helps me keep track of what's going on.
 def printHouseData():
-    lprint('Power Data: Current %s'
-        %(int(float(CurrentPower))))
-    print
-
+    lprint("I'm alive")
+    logIt("I'm alive")
 
 def handleCommand(command):
     lprint(command)
@@ -582,10 +487,6 @@ class monitorhouseSC(object):
     def index(self):
         status = "<strong>House Monitor Process</strong><br /><br />"
         status += "is actually alive<br />"
-        status += ('Power Data: Current %s, Min %s, Max %s<br />'
-            %(int(float(CurrentPower)), int(float(DayMinPower)), int(float(DayMaxPower))))
-        status += ('Outside Temp: Current %s, Min %s, Max %s<br />'
-            %(int(float(CurrentOutTemp)), int(float(DayOutMinTemp)), int(float(DayOutMaxTemp))))
         status += "<br />"
         return status
 '''
@@ -613,20 +514,23 @@ XBEEBAUD_RATE = 9600
 ser = serial.Serial(XBEEPORT, XBEEBAUD_RATE)
 
 # the database where I'm storing house stuff
-DATABASE = hv["database"]
-
-# The database where weather data is stored
+hdbName = hv["houseDatabase"]
+hdbHost = hv["houseHost"]
+hdbPassword = hv["housePassword"]
+hdbUser = hv["houseUser"]
+# weather database
 wdbName = hv["weatherDatabase"]
 wdbHost = hv["weatherHost"]
 wdbPassword = hv["weatherPassword"]
 wdbUser = hv["weatherUser"]
 
-# the database where I'm storing house stuff
-hdbName = hv["houseDatabase"]
-hdbHost = hv["houseHost"]
-hdbPassword = hv["housePassword"]
-hdbUser = hv["houseUser"]
- 
+# Now the mqtt server that will be used
+processName = os.path.basename(sys.argv[0])
+mqttc = mqtt.Client(client_id=processName)
+mqttServer = hv["mqttserver"]
+mqttc.connect(mqttServer, 1883, 60)
+mqttc.loop_start()
+
 # Get the ip address and port number you want to use
 # from the houserc file
 ipAddress= hv["monitorhouse"]["ipAddress"]
@@ -634,6 +538,10 @@ port = hv["monitorhouse"]["port"]
 irisControl = hv["iriscontrol"]["ipAddress"] + ":" + \
                     str(hv["iriscontrol"]["port"])
 lprint("Iris Control is:", irisControl);
+
+wemoControl = hv["wemocontrol"]["ipAddress"] + ":" + \
+                    str(hv["wemocontrol"]["port"])
+lprint("Wemo Control is:", wemoControl);
 
 # The XBee addresses I'm dealing with
 BROADCAST = '\x00\x00\x00\x00\x00\x00\xff\xff'
@@ -643,23 +551,8 @@ UNKNOWN = '\xff\xfe' # This is the 'I don't know' 16 bit address
 logging.basicConfig()
 
 # Create XBee library API object, which spawns a new thread
+# that receives the XBee messages.
 zb = ZigBee(ser, callback=message_received)
-
-#This is the main thread.  Since most of the real work is done by 
-# scheduled tasks, this code checks to see if packets have been 
-# captured and calls the packet decoder
-
-# This process also handles commands sent over the XBee network 
-# to the various devices.  I want to keep the information on the
-# exact commands behind the fire wall, so they'll come in as 
-# things like 'AcidPump, on', 'Garage, dooropen'
-# since this is a multiprocess environment, I'm going to use 
-# system v message queues to pass the commands to this process
-
-# Create the message queue where commands can be read
-# I just chose an identifier of 12.  It's my machine and I'm
-# the only one using it so all that crap about unique ids is
-# totally useless.  12 is the number of eggs in a normal carton.
 
 # a priming read for the thermostats
 ThermostatStatus()
@@ -669,12 +562,11 @@ scheditem = BackgroundScheduler()
 # every 30 seconds print the most current power info
 # This only goes into the job log so I can see that
 # the device is alive and well.
-scheditem.add_job(printHouseData, 'interval', seconds=30)
-# schedule reading the thermostats for every thirty seconds
+scheditem.add_job(printHouseData, 'interval', seconds=60)
+# schedule reading the thermostats for every few seconds
 scheditem.add_job(ThermostatStatus, 'interval', seconds=10)
 scheditem.start()
 
-firstTime = True;
 lprint ("Started")
 # Now configure the cherrypy server using the values
 cherrypy.config.update({'server.socket_host' : ipAddress.encode('ascii','ignore'),

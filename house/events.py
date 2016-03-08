@@ -40,10 +40,10 @@ def talkHTML(ip, command):
 
 #-------These are the jobs that get scheduled----------------
 def bedroomLightOn():
-    talkHTML(irisControl,"command?whichone=monitor&what=on");
+    talkHTML(irisControl,"command?whichone=mbdrm&what=on");
 
 def bedroomLightOff():
-    talkHTML(irisControl,"command?whichone=monitor&what=off");
+    talkHTML(irisControl,"command?whichone=mbdrm&what=off");
 
 def outsideLightsOn():
     talkHTML(wemoController,"pCommand?command=OutsideLightsOn");
