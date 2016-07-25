@@ -3,11 +3,13 @@
    Not sure if I want people to be able to get to it
    directly, so this may disappear
 */
+/*
 $request_headers = apache_request_headers();
 if (isset($request_headers['Origin'])){
     $http_origin = $request_headers['Origin'];
     header("Access-Control-Allow-Origin: $http_origin");
 }
+*/
 
 define('IS_AJAX', isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
 $dbTimeout = 100;
@@ -95,8 +97,25 @@ $ps = mysqlGetIt(
 	'select solar from pool;', $hdb);
 $pt = mysqlGetIt(
 	'select ptemp from pool;', $hdb);
+# The septic tank level sensor
 $stl = mysqlGetIt(
 	'select level from septic;', $hdb);
+    
+# The house freezer defrost controller
+$hft = mysqlGetIt(
+    'select temperature from housefreezer where utime = (select max(utime) from housefreezer);',$hdb);
+$hfd = mysqlGetIt(
+    'select defroster from housefreezer where utime = (select max(utime) from housefreezer);',$hdb);
+$hfmaxt = mysqlGetIt(
+    'SELECT max(`temperature`)
+    FROM `housefreezer`
+    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefreezer`) t ON TRUE
+    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+$hfmint = mysqlGetIt(
+    'SELECT min(`temperature`)
+    FROM `housefreezer`
+    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefreezer`) t ON TRUE
+    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
 # The Wemo switches
 $lfp = mysqlGetIt(
 	'select status from wemo where name="frontporch";', $hdb);
@@ -119,6 +138,7 @@ $response = file_get_contents("http://$stationIp:$stationPort/status");
 $ws = json_decode($response,true);
 # Now, construct an array to use in the  json_encode()
 # statement at the bottom.
+# Starting with the data from house devices
 $giveback = array('power' => $power, 
 	'ntm'=>$ntm, 'stm'=>$stm, 'ntt'=>$ntt, 'stt'=>$stt,
 	'ntms'=>$ntms, 'stms'=>$stms, 'ntfs'=>$ntfs, 'stfs'=>$stfs,
@@ -126,6 +146,7 @@ $giveback = array('power' => $power,
 	'gd1'=>$gd1, 'gd2'=>$gd2, 'wh'=>$wh,
 	'pm'=>$pm, 'pw'=>$pw, 'pl'=>$pl, 'pf'=>$pf, 'ps'=>$ps, 'pt'=>$pt,
 	'stl'=>$stl,
+    'hft'=>$hft, 'hfd'=>$hfd,'hfmaxt'=>$hfmaxt, 'hfmint'=>$hfmint,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
     # The weather station data
     'outsidetemp'=>$ws["currentOutsideTemp"],

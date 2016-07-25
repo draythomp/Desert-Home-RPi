@@ -1,0 +1,12 @@
+[Unit]
+Description=save house data to data base server for jessie
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/pi/src/house/savehouse.py >> /var/log/house/savehouse.log 2>&1'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

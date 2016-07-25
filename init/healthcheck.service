@@ -1,0 +1,12 @@
+[Unit]
+Description= check software operation for jessie
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/pi/src/house/healthcheck.py >> /var/log/house/healthcheck.log 2>&1'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

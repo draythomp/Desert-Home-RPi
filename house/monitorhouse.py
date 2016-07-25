@@ -168,15 +168,17 @@ def handlePacket(data):
     err = mqttc.publish("Desert-Home/XBee/Receive",packet)
     if err[0] != 0:
         lprint("got error {} on publish".format(err[0]))
+    #print packet
     #print data # for debugging so you can see things
     # this packet is returned every time you do a transmit
     # (can be configured out), to tell you that the XBee
     # actually sent the darn thing
     if data['id'] == 'tx_status':
         if ord(data['deliver_status']) != 0:
-            print 'Transmit error = ',
-            print data['deliver_status'].encode('hex')
-            print data
+            if data['deliver_status'] != 0x26: #this error happens often
+                print 'Transmit error = ', #show the other errors
+                print data['deliver_status'].encode('hex')
+            #print data
     # The receive packet is the workhorse, all the good stuff
     # happens with this packet.
     elif data['id'] == 'rx':
@@ -187,6 +189,8 @@ def handlePacket(data):
             #print data['rf_data']
             jData = json.loads(data['rf_data'][:-1])
             if "TempSensor" in jData.keys():
+                lprint("Temp Sensor Packet:", jData)
+                #lprint(jData)
                 #pass this off to the mqtt server
                 err = mqttc.publish("Desert-Home/Device/TempSensor",data['rf_data'][:-1],retain=True);
                 if err[0] != 0:
@@ -314,8 +318,26 @@ def handlePacket(data):
                     lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
                 hdbconn.close()
             elif rxList[0] == 'Freezer':
-                pass
-                #lprint ("Got a Freezer Packet", rxList)
+                print("Got Freezer Packet")
+                print(rxList)
+                try:
+                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+                    hc = hdbconn.cursor()
+                    #hc.execute("update housefreezer set temperature = %s, "
+                    #    "defroster = %s, "
+                    #    "utime = %s;",
+                    #    (rxList[3][:-1], #There's a /r at the end of the line
+                    #    rxList[2],
+                    #    dbTimeStamp()))
+                    hc.execute("insert into housefreezer (temperature, defroster, utime)"
+                        "values(%s,%s,%s);",
+                        (rxList[3][:-1],  #There's a /r at the end of the line
+                        rxList[2],
+                        dbTimeStamp()))
+                    hdbconn.commit()
+                except mdb.Error, e:
+                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+                hdbconn.close()
             else:
                 print ("Error: can\'t handle " + rxList[0] + ' yet')
                 for item in rxList:
@@ -562,9 +584,9 @@ scheditem = BackgroundScheduler()
 # every 30 seconds print the most current power info
 # This only goes into the job log so I can see that
 # the device is alive and well.
-scheditem.add_job(printHouseData, 'interval', seconds=60)
+scheditem.add_job(printHouseData, 'interval', seconds=300)
 # schedule reading the thermostats for every few seconds
-scheditem.add_job(ThermostatStatus, 'interval', seconds=10)
+scheditem.add_job(ThermostatStatus, 'interval', seconds=10, max_instances=2)
 scheditem.start()
 
 lprint ("Started")

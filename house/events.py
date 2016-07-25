@@ -11,7 +11,7 @@ import urllib2
 import BaseHTTPServer
 import MySQLdb as mdb
 import sys
-import sysv_ipc
+#import sysv_ipc
 from houseutils import lprint, getHouseValues
 
 #--------This is for the HTML interface 

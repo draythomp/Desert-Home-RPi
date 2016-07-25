@@ -1,0 +1,12 @@
+[Unit]
+Description= control Wemo devices for jessie
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/pi/src/house/wemocontrol.py 4 >> /var/log/house/wemocontrol.log 2>&1'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

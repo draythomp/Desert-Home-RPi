@@ -8,7 +8,7 @@ from datetime import timedelta
 import time
 import MySQLdb as mdb
 import sys
-import sysv_ipc
+#import sysv_ipc
 import cherrypy
 
 def sendMail(subject, body):

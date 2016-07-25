@@ -1,0 +1,12 @@
+[Unit]
+Description=savebarometer server for jessie
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/pi/src/house/monitorhouse.py >> /var/log/house/monitorhouse.log 2>&1'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

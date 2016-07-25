@@ -20,7 +20,7 @@ from houseutils import getHouseValues, lprint, dbTime, dbTimeStamp
 def openSite(Url):
     #print Url
     try:
-        webHandle = urllib2.urlopen(Url, timeout=5) #if it doesn't answer in 5 seconds, it won't
+        webHandle = urllib2.urlopen(Url, timeout=10) #if it doesn't answer in 5 seconds, it won't
     except urllib2.HTTPError, e:
         errorDesc = BaseHTTPServer.BaseHTTPRequestHandler.responses[e.code][0]
         print "Error: cannot retrieve URL: " + str(e.code) + ": " + errorDesc
@@ -34,7 +34,7 @@ def openSite(Url):
         raise
     except:  #I kept getting strange errors when I was first testing it
         e = sys.exc_info()[0]
-        lprint(url)
+        lprint(Url)
         lprint ("Odd Error: %s" % e )
         raise
     return webHandle
@@ -204,7 +204,7 @@ lprint("Wemo Control is:", wemoControl);
 #
 # Now the mqtt server that will be used
 processName = os.path.basename(sys.argv[0])
-mqttc = mqtt.Client(client_id=processName)
+mqttc = mqtt.Client(client_id=processName, clean_session=True)
 mqttServer = hv["mqttserver"]
 mqttc.connect(mqttServer, 1883, 60)
 mqttc.on_connect = on_connect

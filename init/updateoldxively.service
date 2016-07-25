@@ -1,0 +1,12 @@
+[Unit]
+Description= update xively legacy storage operation for jessie
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '/home/pi/src/house/updateoldxively.py >> /var/log/house/updateoldxively.log 2>&1'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
