@@ -10,6 +10,8 @@ if (isset($request_headers['Origin'])){
     header("Access-Control-Allow-Origin: $http_origin");
 }
 */
+/* Just saving this query here, it was hard to get working and I don't want to lose it
+*/
 
 define('IS_AJAX', isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
 $dbTimeout = 100;

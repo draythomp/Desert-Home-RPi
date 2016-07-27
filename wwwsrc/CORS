@@ -1,0 +1,6 @@
+Cors is Cross Origin Resource Sharing and can be a real pain in the butt
+
+To get data from my server I had to enable it and the best instructions;
+meaning they acctually worked instead of just driving me nuts were here:
+
+http://www.mechonomics.com/enabling-cors-cross-origin-resource-sharing-for-apache2-on-ubuntu-12-04/
