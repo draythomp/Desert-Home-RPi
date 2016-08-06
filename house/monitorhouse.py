@@ -317,27 +317,34 @@ def handlePacket(data):
                 except mdb.Error, e:
                     lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
                 hdbconn.close()
-            elif rxList[0] == 'Freezer':
-                print("Got Freezer Packet")
+            elif rxList[0] == 'HouseFreezer':
+                print("monitorhouse got Freezer Packet")
                 print(rxList)
-                try:
-                    hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
-                    hc = hdbconn.cursor()
-                    #hc.execute("update housefreezer set temperature = %s, "
-                    #    "defroster = %s, "
-                    #    "utime = %s;",
-                    #    (rxList[3][:-1], #There's a /r at the end of the line
-                    #    rxList[2],
-                    #    dbTimeStamp()))
-                    hc.execute("insert into housefreezer (temperature, defroster, utime)"
-                        "values(%s,%s,%s);",
-                        (rxList[3][:-1],  #There's a /r at the end of the line
-                        rxList[2],
-                        dbTimeStamp()))
-                    hdbconn.commit()
-                except mdb.Error, e:
-                    lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-                hdbconn.close()
+                # Convert the string received into a json string for sending
+                # to mqtt for the savehouse process
+                print (json.dumps({"housefreezer":{"temperature":rxList[3][:-1],
+                    "defroster":rxList[2],
+                    "utime": dbTimeStamp()}}) )
+                err = mqttc.publish("Desert-Home/Device/HouseFreezer",
+                    json.dumps({"housefreezer":{"temperature":rxList[3][:-1],
+                    "defroster":rxList[2],
+                    "utime": dbTimeStamp()}}),
+                    retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
+            elif rxList[0] == 'HouseFridge':
+                print("monitorhouse got Fridge Packet")
+                print(rxList)
+                # Convert the string received into a json string for sending
+                # to mqtt for the savehouse process
+                print (json.dumps({"housefridge":{"temperature":rxList[2][:-1],
+                    "utime": dbTimeStamp()}}) )
+                err = mqttc.publish("Desert-Home/Device/HouseFridge",
+                    json.dumps({"housefridge":{"temperature":rxList[2][:-1],
+                    "utime": dbTimeStamp()}}),
+                    retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
             else:
                 print ("Error: can\'t handle " + rxList[0] + ' yet')
                 for item in rxList:

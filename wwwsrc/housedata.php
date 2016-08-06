@@ -118,6 +118,22 @@ $hfmint = mysqlGetIt(
     FROM `housefreezer`
     INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefreezer`) t ON TRUE
     WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+
+# The house fridge monitor
+$hrt = mysqlGetIt(
+    'select temperature from housefridge where utime = (select max(utime) from housefridge);',$hdb);
+$hrmaxt = mysqlGetIt(
+    'SELECT max(`temperature`)
+    FROM `housefridge`
+    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefridge`) t ON TRUE
+    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+$hrmint = mysqlGetIt(
+    'SELECT min(`temperature`)
+    FROM `housefridge`
+    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefridge`) t ON TRUE
+    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    
+    
 # The Wemo switches
 $lfp = mysqlGetIt(
 	'select status from wemo where name="frontporch";', $hdb);
@@ -149,6 +165,7 @@ $giveback = array('power' => $power,
 	'pm'=>$pm, 'pw'=>$pw, 'pl'=>$pl, 'pf'=>$pf, 'ps'=>$ps, 'pt'=>$pt,
 	'stl'=>$stl,
     'hft'=>$hft, 'hfd'=>$hfd,'hfmaxt'=>$hfmaxt, 'hfmint'=>$hfmint,
+    'hrt'=>$hrt, 'hrmaxt'=>$hrmaxt, 'hrmint'=>$hrmint,
 	'lfp'=>$lfp, 'log'=>$log, 'lcs'=>$lcs, 'lp'=>$lp,
     # The weather station data
     'outsidetemp'=>$ws["currentOutsideTemp"],

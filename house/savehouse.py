@@ -96,6 +96,61 @@ def handleTempSensor(data):
         talkHTML(irisControl,"command?whichone=mbdrm&what=toggle");
         talkHTML(wemoControl,"wemocommand?whichone=patio&what=off");
 
+def handleHouseFreezer(data):
+    try:
+        jData = json.loads(data)
+    except ValueError as err:
+        lprint(err)
+        lprint("The buffer:")
+        lprint(str(msg.payload))
+        return
+    #print jData
+    #print "temp       : ", jData["housefreezer"]["temperature"]
+    #print "defroster  : ", jData["housefreezer"]["defroster"]
+    #print "utime      : ", jData["housefreezer"]["utime"]
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("insert into housefreezer (temperature, defroster, utime)"
+            "values(%s,%s,%s);",
+            (jData["housefreezer"]["temperature"],
+            jData["housefreezer"]["defroster"],
+            dbTimeStamp()))
+        hdbconn.commit()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+    
+def handleHouseFridge(data):
+    try:
+        jData = json.loads(data)
+    except ValueError as err:
+        lprint(err)
+        lprint("The buffer:")
+        lprint(str(msg.payload))
+        return
+    #print jData
+    #print "temp       : ", jData["housefridge"]["temperature"]
+    #print "utime      : ", jData["housefridge"]["utime"]
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        whichone = dbTimeStamp()
+        hc.execute("insert into housefridge (temperature, watts, utime)"
+            "values(%s,%s, %s);",
+            (jData["housefridge"]["temperature"],
+            '0',
+            whichone))
+        hc.execute("select watts from smartswitch where name = 'refrigerator';")
+        watts = hc.fetchone()[0]
+        hc.execute("update housefridge set watts = %s"
+            "where utime = %s;",
+            (watts, whichone));
+        hdbconn.commit()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+        
 def handleGarage(data):
     #print("Got Garage")
     #print(data)
@@ -166,9 +221,14 @@ def on_connect(client, userdata, rc):
     # reconnect then subscriptions will be renewed.
     client.subscribe([("Desert-Home/Device/TempSensor",0),
                     ("Desert-Home/Device/Garage", 0),
+                    ("Desert-Home/Device/HouseFreezer",0),
+                    ("Desert-Home/Device/HouseFridge",0),
                     ("Desert-Home/Device/PowerMon",0)])
 
 # The callback for when a PUBLISH message is received from the server.
+# Each XBee house device sends (or is interrogated) by monitorhouse which sends
+# the data in JSON format to mqtt. This looks at each message and directs it
+# to a routine to save the data on my database.
 def on_message(client, userdata, msg):
     #print(msg.topic+" "+str(msg.payload))
     if msg.topic == 'Desert-Home/Device/TempSensor':
@@ -177,6 +237,12 @@ def on_message(client, userdata, msg):
     elif msg.topic == 'Desert-Home/Device/Garage':
         logIt("got garage controller")
         handleGarage(msg.payload)
+    elif msg.topic == 'Desert-Home/Device/HouseFreezer':
+        logIt("got house freezer monitor")
+        handleHouseFreezer(msg.payload)
+    elif msg.topic == 'Desert-Home/Device/HouseFridge':
+        logIt("got house fridge monitor")
+        handleHouseFridge(msg.payload)
     elif msg.topic == 'Desert-Home/Device/PowerMon':
         logIt("got power monitor")
         handlePowerMon(msg.payload)

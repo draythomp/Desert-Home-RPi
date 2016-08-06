@@ -133,6 +133,7 @@ function gatherdata(){
         $("#stts").text(data.stts);
        // Septic Tank level
         $("#stl").text(data.stl);
+        
        // House Freezer
         $("#hft").text(data.hft); //Temperature
         $("#hfd").text(data.hfd); //Defroster Status
@@ -141,6 +142,15 @@ function gatherdata(){
             }
         $("#hfmaxt").text(data.hfmaxt); //Max day temp
         $("#hfmint").text(data.hfmint); //Min day temp
+        
+       // House Fridge
+        $("#hrt").text(data.hrt); //Temperature
+        if (isNumber(data.hrt)){
+            houseFridgeGauge.setValueAnimated(data.hrt);
+            }
+        $("#hrmaxt").text(data.hrmaxt); //Max day temp
+        $("#hrmint").text(data.hrmint); //Min day temp
+        
         // garage door
         $("#gd1").text(data.gd1);
         if (data.gd1 == "closed"){
@@ -450,11 +460,11 @@ function gatherdata(){
             <tr style="color:black; background-color:yellow"> <!-- Title Row -->
                 <td colspan="2"><strong><center>Freezer</center></strong></td>
             </tr>
-            <tr> <!--First row defroster status -->
-                <td>Defrost: <span id=hfd>wait</span></td>
-            </tr>
             <tr> <!-- Temperature gauge -->
                 <td><canvas id=hfCanvas width=200 height=200></canvas></td>
+            </tr>
+            <tr> <!-- defroster status -->
+                <td>Defrost: <span id=hfd>wait</span></td>
             </tr>
             <tr> <!-- Daily max temp in freezer -->
                 <td>Day Max: <span id=hfmaxt>wait</span><br />
@@ -462,6 +472,37 @@ function gatherdata(){
             </tr>
             <tr> <!-- Daily min temp in freezer -->
                 <td>Day Min: <span id=hfmint>wait</span><br />
+                </td>
+            </tr>
+            <tr> <!-- Freezer chart -->
+                <td>
+                <center>
+                <input type="button" style="background-color:lightgray" value="Chart" onClick="parent.location='/charts/freezergraph.html'">
+                </center>
+                </td>
+            </tr>
+            </table>
+            <!-- Table for the in-house Fridge -->
+            <table border="1" cellpadding="3" cellspacing= "1">
+            <tr style="color:black; background-color:yellow"> <!-- Title Row -->
+                <td colspan="2"><strong><center>Fridge</center></strong></td>
+            </tr>
+            <tr> <!-- Temperature gauge -->
+                <td><canvas id=hrCanvas width=200 height=200></canvas></td>
+            </tr>
+            <tr> <!-- Daily max temp -->
+                <td>Day Max: <span id=hrmaxt>wait</span><br />
+                </td>
+            </tr>
+            <tr> <!-- Daily min temp -->
+                <td>Day Min: <span id=hrmint>wait</span><br />
+                </td>
+            </tr>
+            <tr> <!-- Fridge chart -->
+                <td>
+                <center>
+                <input type="button" style="background-color:lightgray" value="Chart" onClick="parent.location='/charts/fridgegraph.html'">
+                </center>
                 </td>
             </tr>
             </table>
@@ -625,6 +666,24 @@ function gatherdata(){
         houseFreezerGauge = new steelseries.Radial('hfCanvas', {
             gaugeType: steelseries.GaugeType.TYPE4,
             minValue:-15,
+            maxValue:60,
+            size: 150,
+            frameDesign: steelseries.FrameDesign.BRASS,
+            knobStyle: steelseries.KnobStyle.BRASS,
+            pointerType: steelseries.PointerType.TYPE6,
+            backgroundColor: steelseries.BackgroundColor.CARBON,
+            section: null,
+            lcdDecimals: 1,
+            area: null,
+            titleString: 'Temperature',
+            unitString: '°F',
+            threshold: 30,
+            ledVisible: true,
+            lcdVisible: true
+        });
+        houseFridgeGauge = new steelseries.Radial('hrCanvas', {
+            gaugeType: steelseries.GaugeType.TYPE4,
+            minValue:0,
             maxValue:60,
             size: 150,
             frameDesign: steelseries.FrameDesign.BRASS,
