@@ -51,7 +51,7 @@
 					zoomType: 'x'
 				},
 				title: {
-					text: 'Desert Home: House Freezer Internal Temperature'
+					text: 'Desert Home: House Freezer'
 				},
 				plotOptions: {
 					series: {
@@ -78,7 +78,25 @@
                     min: -10,
                     max: 70,
 					opposite: false
-				}],
+				},{
+					labels:{
+						format: '{value}W',
+						style: {
+							color: Highcharts.getOptions().colors[0]
+						}
+					},
+					title: {
+						text: 'Watts',
+						style: {
+							color: Highcharts.getOptions().colors[0]
+						}
+					},
+					minRange: 0.1,
+					min: 0,
+                    max: 200,
+					opposite: true
+				}
+                ],
 				xAxis: {
 					type: "datetime",
 					name: "Time"
@@ -87,6 +105,10 @@
                     yAxis: 0,
 					name: 'Temperature',
 					data: []
+				}, {
+					name: 'Power',
+					yAxis: 1,
+					data:[]
 				}]
 			};
 
@@ -102,7 +124,8 @@
                     $.each( data, function( key, val ) {
                         //console.log("Itms: " + key + " " + val);
                         //The conversion below has TZ adjustment for Phoenix time
-                        options.series[0].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val)]);
+                        options.series[0].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                        options.series[1].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["watts"])]);
                     });
                 })
                 .fail(function( jqxhr, textStatus, error ) {
@@ -111,6 +134,9 @@
                 });
 			// sort table of data before display
 			options.series[0].data.sort(function(a,b){
+				return(a[0]-b[0]);
+				});
+			options.series[1].data.sort(function(a,b){
 				return(a[0]-b[0]);
 				});
 			var chart = new Highcharts.Chart(options);

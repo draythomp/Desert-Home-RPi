@@ -111,11 +111,17 @@ def handleHouseFreezer(data):
     try:
         hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
         hc = hdbconn.cursor()
+        whichone = dbTimeStamp()
         hc.execute("insert into housefreezer (temperature, defroster, utime)"
             "values(%s,%s,%s);",
             (jData["housefreezer"]["temperature"],
             jData["housefreezer"]["defroster"],
-            dbTimeStamp()))
+            whichone))
+        hc.execute("select watts from smartswitch where name = 'freezer';")
+        watts = hc.fetchone()[0]
+        hc.execute("update housefreezer set watts = %s"
+            "where utime = %s;",
+            (watts, whichone));
         hdbconn.commit()
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))

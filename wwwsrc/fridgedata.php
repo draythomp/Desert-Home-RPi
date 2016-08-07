@@ -1,9 +1,5 @@
 <?php
 
-/* Just saving this query here, it was hard to get working and I don't want to lose it
-SELECT * FROM `housefreezer` where timestamp > date_sub(now(), interval 24 hour) ORDER BY `timestamp` DESC  
-*/
-
 define('IS_AJAX', isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest');
 $dbTimeout = 100;
 
