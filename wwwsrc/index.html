@@ -143,6 +143,14 @@ function gatherdata(){
         $("#hfmaxt").text(data.hfmaxt); //Max day temp
         $("#hfmint").text(data.hfmint); //Min day temp
         
+       // Garage Freezer
+        $("#gft").text(data.gft); //Temperature
+        if (isNumber(data.gft)){
+            garageFreezerGauge.setValueAnimated(data.gft);
+            }
+        $("#gfmaxt").text(data.gfmaxt); //Max day temp
+        $("#gfmint").text(data.gfmint); //Min day temp
+
        // House Fridge
         $("#hrt").text(data.hrt); //Temperature
         if (isNumber(data.hrt)){
@@ -150,6 +158,7 @@ function gatherdata(){
             }
         $("#hrmaxt").text(data.hrmaxt); //Max day temp
         $("#hrmint").text(data.hrmint); //Min day temp
+
         
         // garage door
         $("#gd1").text(data.gd1);
@@ -506,6 +515,30 @@ function gatherdata(){
                 </td>
             </tr>
             </table>
+            <!-- Table for the garage freezer -->
+            <table border="1" cellpadding="3" cellspacing= "1">
+            <tr style="color:black; background-color:yellow"> <!-- Title Row -->
+                <td colspan="2"><strong><center>Garage Freezer</center></strong></td>
+            </tr>
+            <tr> <!-- Temperature gauge -->
+                <td><canvas id=gfCanvas width=200 height=200></canvas></td>
+            </tr>
+            <tr> <!-- Daily max temp -->
+                <td>Day Max: <span id=gfmaxt>wait</span><br />
+                </td>
+            </tr>
+            <tr> <!-- Daily min temp -->
+                <td>Day Min: <span id=gfmint>wait</span><br />
+                </td>
+            </tr>
+            <tr> <!-- Garage Freezer chart -->
+                <td>
+                <center>
+                <input type="button" style="background-color:lightgray" value="Chart" onClick="parent.location='/charts/gfreezergraph.html'">
+                </center>
+                </td>
+            </tr>
+            </table>
         </td>
     </tr>
     
@@ -699,6 +732,24 @@ function gatherdata(){
             ledVisible: true,
             lcdVisible: true
         });
-    };
+         garageFreezerGauge = new steelseries.Radial('gfCanvas', {
+            gaugeType: steelseries.GaugeType.TYPE4,
+            minValue:-10,
+            maxValue:50,
+            size: 150,
+            frameDesign: steelseries.FrameDesign.BRASS,
+            knobStyle: steelseries.KnobStyle.BRASS,
+            pointerType: steelseries.PointerType.TYPE6,
+            backgroundColor: steelseries.BackgroundColor.CARBON,
+            section: null,
+            lcdDecimals: 1,
+            area: null,
+            titleString: 'Temperature',
+            unitString: '°F',
+            threshold: 32,
+            ledVisible: true,
+            lcdVisible: true
+        });
+   };
 </script>
 </body>
