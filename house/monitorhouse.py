@@ -345,6 +345,19 @@ def handlePacket(data):
                     retain=True);
                 if err[0] != 0:
                     lprint("got error {} on publish".format(err[0]))
+            elif rxList[0] == 'GarageFreezer':
+                print("monitorhouse got Garage Freezer Packet")
+                print(rxList)
+                # Convert the string received into a json string for sending
+                # to mqtt for the savehouse process
+                print (json.dumps({"garagefreezer":{"temperature":rxList[2][:-1],
+                    "utime": dbTimeStamp()}}) )
+                err = mqttc.publish("Desert-Home/Device/GarageFreezer",
+                    json.dumps({"garagefreezer":{"temperature":rxList[2][:-1],
+                    "utime": dbTimeStamp()}}),
+                    retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
             else:
                 print ("Error: can\'t handle " + rxList[0] + ' yet')
                 for item in rxList:

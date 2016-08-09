@@ -156,7 +156,38 @@ def handleHouseFridge(data):
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
     hdbconn.close()
-        
+
+def handleGarageFreezer(data):
+    try:
+        jData = json.loads(data)
+    except ValueError as err:
+        lprint(err)
+        lprint("The buffer:")
+        lprint(str(msg.payload))
+        return
+    print jData
+    print "temp       : ", jData["garagefreezer"]["temperature"]
+    print "utime      : ", jData["garagefreezer"]["utime"]
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        whichone = dbTimeStamp()
+        hc.execute("insert into garagefreezer (temperature, watts, utime)"
+            "values(%s,%s, %s);",
+            (jData["garagefreezer"]["temperature"],
+            '0',
+            whichone))
+        hc.execute("select watts from smartswitch where name = 'garagefreezer';")
+        watts = hc.fetchone()[0]
+        hc.execute("update garagefreezer set watts = %s"
+            "where utime = %s;",
+            (watts, whichone));
+        hdbconn.commit()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+
+    
 def handleGarage(data):
     #print("Got Garage")
     #print(data)
@@ -229,6 +260,7 @@ def on_connect(client, userdata, rc):
                     ("Desert-Home/Device/Garage", 0),
                     ("Desert-Home/Device/HouseFreezer",0),
                     ("Desert-Home/Device/HouseFridge",0),
+                    ("Desert-Home/Device/GarageFreezer",0),
                     ("Desert-Home/Device/PowerMon",0)])
 
 # The callback for when a PUBLISH message is received from the server.
@@ -249,6 +281,9 @@ def on_message(client, userdata, msg):
     elif msg.topic == 'Desert-Home/Device/HouseFridge':
         logIt("got house fridge monitor")
         handleHouseFridge(msg.payload)
+    elif msg.topic == 'Desert-Home/Device/GarageFreezer':
+        logIt("got garage freezer monitor")
+        handleGarageFreezer(msg.payload)
     elif msg.topic == 'Desert-Home/Device/PowerMon':
         logIt("got power monitor")
         handlePowerMon(msg.payload)
