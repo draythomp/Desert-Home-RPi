@@ -107,6 +107,13 @@ def checkUpdateTimes(items):
                 collected.update({"cactusspot" : updateTime})
             except mdb.Error, e:
                  lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+        elif (item == 'power'):
+            try:
+                mc.execute("select utime from power order by utime desc limit 1;")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"power" : updateTime})
+            except mdb.Error, e:
+                 lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         else:
             try:
                 mc.execute("select utime from {0};".format(item))

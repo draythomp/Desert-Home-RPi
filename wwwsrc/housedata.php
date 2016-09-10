@@ -53,7 +53,7 @@ mysql_select_db($hdbName, $hdb) or die('Unable to open database!' . mysql_error(
 # variables first makes debugging and array 
 # construction easier.  At least initially.
 $power = mysqlGetIt(
-	"select rpower from power;", $hdb);
+	"select rpower from power order by utime desc limit 1", $hdb);
 # Current status of the two thermostats
 $ntm = mysqlGetIt(
 	'select status from thermostats where location="North";', $hdb);
@@ -63,7 +63,12 @@ $ntt = mysqlGetIt(
 	'select `temp-reading` from thermostats where location="North";', $hdb);
 $stt = mysqlGetIt(
 	'select `temp-reading` from thermostats where location="South";', $hdb);
-# The North and South Thermostat setting (temp, mode, fan)
+$ntp = mysqlGetIt(
+	'select `peak` from thermostats where location="North";', $hdb);
+$stp = mysqlGetIt(
+	'select `peak` from thermostats where location="South";', $hdb);
+
+    # The North and South Thermostat setting (temp, mode, fan)
 $ntms = mysqlGetIt(
 	'select `s-mode` from thermostats where location="North";', $hdb);
 $stms = mysqlGetIt(
@@ -168,7 +173,7 @@ $ws = json_decode($response,true);
 # statement at the bottom.
 # Starting with the data from house devices
 $giveback = array('power' => $power, 
-	'ntm'=>$ntm, 'stm'=>$stm, 'ntt'=>$ntt, 'stt'=>$stt,
+	'ntm'=>$ntm, 'stm'=>$stm, 'ntt'=>$ntt, 'stt'=>$stt, 'ntp'=>$ntp, 'stp'=>$stp,
 	'ntms'=>$ntms, 'stms'=>$stms, 'ntfs'=>$ntfs, 'stfs'=>$stfs,
 	'ntts'=>$ntts, 'stts'=>$stts,
 	'gd1'=>$gd1, 'gd2'=>$gd2, 'wh'=>$wh,

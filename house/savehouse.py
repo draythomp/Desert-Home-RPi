@@ -3,7 +3,7 @@
 This saves data gathered for various devices using mqtt to
 a database on my house NAS.
 '''
-from apscheduler.schedulers.background import BackgroundScheduler
+#from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import datetime
 import time
@@ -15,7 +15,7 @@ import json
 import urllib2
 import paho.mqtt.client as mqtt
 
-from houseutils import getHouseValues, lprint, dbTime, dbTimeStamp
+from houseutils import timer, getHouseValues, lprint, dbTime, dbTimeStamp
 
 def openSite(Url):
     #print Url
@@ -212,8 +212,35 @@ def handleGarage(data):
         except mdb.Error, e:
             lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         hdbconn.close()
+        
+# power record only gets updated once a minute
+rpower = ""
+apower = ""
+pfactor = ""
+voltage = ""
+current = ""
+frequency = ""
 
+def updatePower():
+    #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
+    #   %(rpower, apower, pfactor, voltage, current, frequency))
+    #print "updating power in database"
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("insert into power (rpower, apower, pfactor, voltage, current, frequency, utime)"
+            "values(%s,%s,%s,%s,%s,%s,%s);",
+            (rpower, apower, pfactor, voltage, current, 
+            frequency, dbTimeStamp()))
+        hdbconn.commit()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+    
+# This just saves the data for minute updates to db
 def handlePowerMon(data):
+    global rpower, apower, pfactor, voltage, current, frequency
+
     try:
         jData = json.loads(data)
     except ValueError as err:
@@ -228,25 +255,6 @@ def handlePowerMon(data):
     voltage = jData["PowerMon"]["V"]
     current = jData["PowerMon"]["I"]
     frequency = jData["PowerMon"]["F"]
-    #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
-    #   %(rpower, apower, pfactor, voltage, current, frequency))
-    #print "updating power in database"
-    try:
-        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
-        hc = hdbconn.cursor()
-        hc.execute("update power set rpower = %s, "
-            "apower = %s,"
-            "pfactor = %s,"
-            "voltage = %s,"
-            "current = %s,"
-            "frequency = %s,"
-            "utime = %s;",
-            (rpower, apower, pfactor, voltage, current, 
-            frequency, dbTimeStamp()))
-        hdbconn.commit()
-    except mdb.Error, e:
-        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-    hdbconn.close()
     
 def logIt(text):
     mqttc.publish("Desert-Home/Log","{}, {}".format(processName, text));
@@ -290,6 +298,8 @@ def on_message(client, userdata, msg):
     else:
         lprint("got odd topic back: {}".format(msg.topic))
         logIt("got odd topic back: {}".format(msg.topic))
+    # update the timer for saving things.
+    checkTimer.tick()
 
 #-----------------------------------------------------------------
 # get the stuff from the houserc file
@@ -306,7 +316,9 @@ lprint("Iris Control is:", irisControl);
 # the wemo switch controller
 wemoControl = hv["wemocontrol"]["ipAddress"] + ":" + \
                     str(hv["wemocontrol"]["port"])
-lprint("Wemo Control is:", wemoControl);
+lprint("Wemo Control is:", wemoControl)
+
+checkTimer = timer(None)
 
 #
 # Now the mqtt server that will be used
@@ -316,6 +328,8 @@ mqttServer = hv["mqttserver"]
 mqttc.connect(mqttServer, 1883, 60)
 mqttc.on_connect = on_connect
 mqttc.on_message = on_message
+# one minute timer for updating power record
+minute = timer(updatePower, minutes=1)
 try:
     # Blocking call that processes network traffic, dispatches callbacks and
     # handles reconnecting.

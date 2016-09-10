@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="icon" type="image/png" sizes="196x196" href="images/CactusIcon.png">
+
+    <LINK REL="SHORTCUT ICON" HREF="favicon.ico" />
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <!-- Include meta tag to ensure proper rendering and touch zooming -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Include jQuery Mobile stylesheets -->
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">
+    <!-- Include the jQuery library -->
+    <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <!-- Include the jQuery Mobile library -->
+    <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <!-- The Steel Series gauges -->
+    <script type=text/javascript src=SteelSeries/tween-min.js></script>
+    <script type=text/javascript src=SteelSeries/steelseries.js></script>
+    <!-- HighCharts -->
+	<script type='text/javascript' src="http://code.highcharts.com/highcharts.js"></script>
+    <script type=text/javascript src=purl.js></script>
+ 
+</head>
+<body>
+<script>
+    var secret;
+    var debugUrl = "http://192.168.0.205/";
+    var framedesign = steelseries.FrameDesign.CHROME;
+    var knobstyle= steelseries.KnobStyle.BRASS;
+    var pointertype= steelseries.PointerType.TYPE15;
+    var backgroundcolor = steelseries.BackgroundColor.BLUE;
+    
+    $(document).ready(function(){
+        var url = $.url();
+        secret = url.param('secret');
+        if (secret){
+            logit("The super secret magic word is you're trying is: "+secret);
+        }
+        gatherdata();
+    });
+
+    // These GLOBAL variables control the update and values
+    // of the thermostat sliders
+    var savedSettings = {"ntts":0, "ntms":0, "ntfs":0,
+                        "stts":0, "stms":0, "stfs":0};
+    var okToUpdate=true;
+                             
+    function gatherdata(){
+        console.log("gathering data");
+        $.getJSON(debugUrl+"housedata.php",function(data,status){ 
+            //console.log(data);
+            // Beginning of Thermostat items Starting with the North
+            // but first, save settings to restore in the pop up 
+            savedSettings.ntts=data.ntts;
+            savedSettings.ntms=data.ntms;
+            savedSettings.ntfs=data.ntfs;
+            savedSettings.stts=data.stts;
+            savedSettings.stms=data.stms;
+            savedSettings.stfs=data.stfs;
+
+            // Start page gauges
+            powerGauge.setValueAnimated(data.power);
+            tempGauge.setValueAnimated(data.outsidetemp);
+
+            // Weather Station gauges
+            var direction={"NNW":337.5,"NW":315,"WNW":292.5,"W":270,
+                "WSW":247.5,"SW":225,"SSW":202.5,"S":180,
+                "SSE":157.5,"SE":135,"ESE":112.5,"E":90,
+                "ENE":67.5,"NE":45,"NNE":22.5,"N":0};
+            if (data.wd in direction){
+                if (winddGauge.getValueLatest() != direction[data.wd]){
+                    winddGauge.setValueAnimatedAverage(winddGauge.getValueLatest());
+                    }
+                winddGauge.setValueAnimatedLatest(direction[data.wd]);
+            }
+            windsGauge.setValueAnimated(data.ws);
+            humidityGauge.setValueAnimated(data.hy);
+            wsTempGauge.setValueAnimated(data.rtt);
+            barometerGauge.setValueAnimated(data.bp);
+            barometerGauge.setThreshold(data.mb);
+            // stats
+            $("#hwst").text(data.hws);
+            $("#htt").text(data.htt.toFixed(0));
+            $("#ltt").text(data.ltt.toFixed(0));
+            $("#rft").text(data.rft);
+            
+
+            // get North Thermostat data and display it
+            //temp reading
+            //console.log("temperature reading: ",data.ntt);
+            $("#nmode").text(data.ntms);
+            $("#ntt").text(data.ntt); 
+            $("#ntp").text(data.ntp);
+            // current activity
+            //console.log("current activity: ", data.ntm);
+            if (data.ntm=="Recirc"){
+                $("#ntm").attr("src","images/FanGreenAnim.gif");
+                }
+            else if (data.ntm=="Cooling"){
+                $("#ntm").attr("src","images/FanBlueAnim.gif");
+                }
+            else if (data.ntm=="Heating"){
+                $("#ntm").attr("src","images/FanRedAnim.gif");
+                }
+            else {
+                $("#ntm").attr("src","images/FanBlack.gif");
+                }
+            // Right here is the end of the current state display
+        
+            // Now update (maybe) the settings popup
+            if(okToUpdate == true && $("#ntts").hasClass("ui-slider-input")==true){
+                // temperature setting
+                $("#ntts").val(data.ntts).slider('refresh');
+                // Mode setting
+                //console.log("thermostat mode setting: "+data.ntms);
+                switch (data.ntms){
+                    case "Off":
+                        $("#ntmOff").prop("checked", true).checkboxradio("refresh");
+                        $("#ntmCool").prop("checked", false).checkboxradio("refresh");
+                        $("#ntmHeat").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Cooling":
+                        $("#ntmOff").prop("checked", false).checkboxradio("refresh");
+                        $("#ntmCool").prop("checked", true).checkboxradio("refresh");
+                        $("#ntmHeat").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Heating":
+                        $("#ntmOff").prop("checked", false).checkboxradio("refresh");
+                        $("#ntmCool").prop("checked", false).checkboxradio("refresh");
+                        $("#ntmHeat").prop("checked", true).checkboxradio("refresh");
+                        break;
+                }
+                // Fan setting
+                //console.log("thermostat fan setting: >"+data.ntfs+"<");
+                switch (data.ntfs){
+                    case "On":
+                        $("#ntfOn").prop("checked", true).checkboxradio("refresh");
+                        $("#ntfAuto").prop("checked", false).checkboxradio("refresh");
+                        $("#ntfRecirc").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Auto":
+                        $("#ntfOn").prop("checked", false).checkboxradio("refresh");
+                        $("#ntfAuto").prop("checked", true).checkboxradio("refresh");
+                        $("#ntfRecirc").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Recirc":
+                        $("#ntfOn").prop("checked", false).checkboxradio("refresh");
+                        $("#ntfAuto").prop("checked", false).checkboxradio("refresh");
+                        $("#ntfRecirc").prop("checked", true).checkboxradio("refresh");
+                        break;
+                }
+            }
+            // now get South Thermostat data and display it
+            //temp reading
+            //console.log("temperature reading: ",data.stt);
+            $("#smode").text(data.stms);
+            $("#stt").text(data.stt);
+            $("#stp").text(data.stp);
+            // current activity
+            //console.log("current activity: ", data.stm);
+            if (data.stm=="Recirc"){
+                $("#stm").attr("src","images/FanGreenAnim.gif");
+                }
+            else if (data.stm=="Cooling"){
+                $("#stm").attr("src","images/FanBlueAnim.gif");
+                }
+            else if (data.stm=="Heating"){
+                $("#stm").attr("src","images/FanRedAnim.gif");
+                }
+            else {
+                $("#stm").attr("src","images/FanBlack.gif");
+                }
+            // Right here is the end of the current state display
+        
+            // Now update (maybe) the settings popup
+            if(okToUpdate == true && $("#stts").hasClass("ui-slider-input")==true){
+                // temperature setting
+                $("#stts").val(data.ntts).slider('refresh');
+                // Mode setting
+                //console.log("thermostat mode setting: "+data.ntms);
+                switch (data.stms){
+                    case "Off":
+                        $("#stmOff").prop("checked", true).checkboxradio("refresh");
+                        $("#stmCool").prop("checked", false).checkboxradio("refresh");
+                        $("#stmHeat").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Cooling":
+                        $("#stmOff").prop("checked", false).checkboxradio("refresh");
+                        $("#stmCool").prop("checked", true).checkboxradio("refresh");
+                        $("#stmHeat").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Heating":
+                        $("#stmOff").prop("checked", false).checkboxradio("refresh");
+                        $("#stmCool").prop("checked", false).checkboxradio("refresh");
+                        $("#stmHeat").prop("checked", true).checkboxradio("refresh");
+                        break;
+                }
+                // Fan setting
+                //console.log("thermostat fan setting: >"+data.ntfs+"<");
+                switch (data.stfs){
+                    case "On":
+                        $("#stfOn").prop("checked", true).checkboxradio("refresh");
+                        $("#stfAuto").prop("checked", false).checkboxradio("refresh");
+                        $("#stfRecirc").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Auto":
+                        $("#stfOn").prop("checked", false).checkboxradio("refresh");
+                        $("#stfAuto").prop("checked", true).checkboxradio("refresh");
+                        $("#stfRecirc").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Recirc":
+                        $("#stfOn").prop("checked", false).checkboxradio("refresh");
+                        $("#stfAuto").prop("checked", false).checkboxradio("refresh");
+                        $("#stfRecirc").prop("checked", true).checkboxradio("refresh");
+                        break;
+                } <!-- End of the south thermostat -->
+            } <!-- End of the thermostats -->
+            
+            <!-- Now the garage stuff -->
+            $("#gd1status").text(data.gd1.toUpperCase());
+            $("#gd2").text(data.gd2.toUpperCase());
+            $("#wh").text(data.wh.toUpperCase());
+            $("#stl").text(data.stl.toUpperCase());
+            if (data.gd1=="closed"){
+                $("#gd1image").attr("src","images/GarageClosedBare.png");
+            }
+            else {
+                $("#gd1image").attr("src","images/GarageOpenBare.png");
+            }
+            if(okToUpdate == true && $("#gd1popup").hasClass("ui-popup")==true){
+                if (data.gd1=="closed"){
+                    $("#gd1open").prop("checked", false).checkboxradio("refresh");
+                    $("#gd1close").prop("checked", true).checkboxradio("refresh");
+                }
+                else {
+                    $("#gd1open").prop("checked", true).checkboxradio("refresh");
+                    $("#gd1close").prop("checked", false).checkboxradio("refresh");
+                }
+            }
+                
+            if (data.gd2=="closed"){
+                $("#gd2image").attr("src","images/GarageClosedBare.png");
+            }
+            else {
+                $("#gd2image").attr("src","images/GarageOpenBare.png");
+            }
+            if(okToUpdate == true && $("#gd2popup").hasClass("ui-popup")==true){
+                if (data.gd2=="closed"){
+                    $("#gd2open").prop("checked", false).checkboxradio("refresh");
+                    $("#gd2close").prop("checked", true).checkboxradio("refresh");
+                }
+                else {
+                    $("#gd2open").prop("checked", true).checkboxradio("refresh");
+                    $("#gd2close").prop("checked", false).checkboxradio("refresh");
+                }
+            }
+            
+            if (data.wh=="on"){
+                $("#whimage").attr("src","images/HotWaterHeaterOn.png");
+            }
+            else {
+                $("#whimage").attr("src","images/HotWaterHeaterOff.png");
+            }
+            if(okToUpdate == true && $("#whpopup").hasClass("ui-popup")==true){
+                if (data.wh=="on"){
+                    $("#whon").prop("checked", true).checkboxradio("refresh");
+                    $("#whoff").prop("checked", false).checkboxradio("refresh");
+                }
+                else {
+                    $("#whon").prop("checked", false).checkboxradio("refresh");
+                    $("#whoff").prop("checked", true).checkboxradio("refresh");
+                }
+            }
+            
+            if (data.stl=="OK"){
+                $("#stlimage").attr("src","images/SepticTank.png");
+            }
+            else {
+                $("#stlimage").attr("src","images/SepticTankFull.png");
+            }
+            <!-- End of the garage stuff -->
+            
+            <!-- The Appliances -->
+            // House Freezer
+            $("#hft").text(data.hft); //Temperature
+            $("#hfd").text(data.hfd); //Defroster Status
+                houseFreezerGauge.setValueAnimated(data.hft);
+            $("#hfmaxt").text(data.hfmaxt); //Max day temp
+            $("#hfmint").text(data.hfmint); //Min day temp
+            
+           // House Fridge
+            $("#hrt").text(data.hrt); //Temperature
+            houseFridgeGauge.setValueAnimated(data.hrt);
+            $("#hrmaxt").text(data.hrmaxt); //Max day temp
+            $("#hrmint").text(data.hrmint); //Min day temp
+
+            // Garage Freezer
+            $("#gft").text(data.gft); //Temperature
+            garageFreezerGauge.setValueAnimated(data.gft);
+            $("#gfmaxt").text(data.gfmaxt); //Max day temp
+            $("#gfmint").text(data.gfmint); //Min day temp
+            <!-- End of the appliances-->
+            
+            <!-- the swimming pool -->
+            $("#pm").text(data.pm);
+            if (data.pm == 'Off'){
+                $("#pmimage").attr("src","images/ecostaroff.png");
+            }
+            else if (data.pm == "Low"){
+                $("#pmimage").attr("src","images/ecostarlow.png");
+            }
+            else {
+                $("#pmimage").attr("src","images/ecostarhigh.png");
+            }
+            if(okToUpdate == true && $("#pmpopup").hasClass("ui-popup")==true){
+                switch (data.pm){
+                    case "Off":
+                        $("#pmoff").prop("checked", true).checkboxradio("refresh");
+                        $("#pmlow").prop("checked", false).checkboxradio("refresh");
+                        $("#pmhigh").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "Low":
+                        $("#pmoff").prop("checked", false).checkboxradio("refresh");
+                        $("#pmlow").prop("checked", true).checkboxradio("refresh");
+                        $("#pmhigh").prop("checked", false).checkboxradio("refresh");
+                        break;
+                    case "High":
+                        $("#pmoff").prop("checked", false).checkboxradio("refresh");
+                        $("#pmlow").prop("checked", false).checkboxradio("refresh");
+                        $("#pmhigh").prop("checked", true).checkboxradio("refresh");
+                        break;
+                }
+            }
+            $("#pw").text(data.pw);
+            if (data.pw == 'Off'){
+                $("#pwimage").attr("src","images/waterfalloff.png");
+            }
+            else {
+                $("#pwimage").attr("src","images/waterfallon.png");
+            }
+            if(okToUpdate == true && $("#pwpopup").hasClass("ui-popup")==true){
+                if (data.pw=="Off"){
+                    $("#pwon").prop("checked", false).checkboxradio("refresh");
+                    $("#pwoff").prop("checked", true).checkboxradio("refresh");
+                }
+                else {
+                    $("#pwon").prop("checked", true).checkboxradio("refresh");
+                    $("#pwoff").prop("checked", false).checkboxradio("refresh");
+                }
+            }
+            $("#pl").text(data.pl);
+            if (data.pl == 'Off'){
+                $("#plimage").attr("src","images/roundlightoff.png");
+            }
+            else {
+                $("#plimage").attr("src","images/roundlighton.png");
+            }
+            if(okToUpdate == true && $("#plpopup").hasClass("ui-popup")==true){
+                if (data.pl=="Off"){
+                    $("#plon").prop("checked", false).checkboxradio("refresh");
+                    $("#ploff").prop("checked", true).checkboxradio("refresh");
+                }
+                else {
+                    $("#plon").prop("checked", true).checkboxradio("refresh");
+                    $("#ploff").prop("checked", false).checkboxradio("refresh");
+                }
+            }
+            $("#pf").text(data.pf);
+            if (data.pf == 'Off'){
+                $("#pfimage").attr("src","images/fountainoff.png");
+            }
+            else {
+                $("#pfimage").attr("src","images/fountainon.png");
+            }
+            if(okToUpdate == true && $("#pfpopup").hasClass("ui-popup")==true){
+                if (data.pf=="Off"){
+                    $("#pfon").prop("checked", false).checkboxradio("refresh");
+                    $("#pfoff").prop("checked", true).checkboxradio("refresh");
+                }
+                else {
+                    $("#pfon").prop("checked", true).checkboxradio("refresh");
+                    $("#pfoff").prop("checked", false).checkboxradio("refresh");
+                }
+            }
+            $("#ps").text(data.ps);
+            <!-- end of pool-->
+            
+            <!-- Controlled Lights -->
+            if (data.log=="On"){
+                $("#log").attr("src","images/bulbon.png");
+                }
+            else{
+                $("#log").attr("src","images/bulboff.png");
+                }
+            if (data.lfp=="On"){
+                $("#lfp").attr("src","images/bulbon.png");
+                }
+            else{
+                $("#lfp").attr("src","images/bulboff.png");
+                }
+            if (data.lcs=="On"){
+                $("#lcs").attr("src","images/bulbon.png");
+                }
+            else{
+                $("#lcs").attr("src","images/bulboff.png");
+                }
+            if (data.lp=="On"){
+                $("#lp").attr("src","images/bulbon.png");
+                }
+            else{
+                $("#lp").attr("src","images/bulboff.png");
+                }
+            <!-- End of Conrolled Lights -->
+            
+        }); // This is the end of the get for data
+        setTimeout(gatherdata, 10000);
+    }; // this is the end of the gatherdata function
+    
+    // put things in the diag popup for debugging
+    function logit(stuff){
+        $("#diagpopup").append(stuff+"<br>");
+        $bottom=$("#diagpopup").prop('scrollHeight');
+        $("#diagpopup").scrollTop($bottom);
+    }
+
+    // This actually sends the command to take an action
+    function doit(device, command){
+        logit("doit: "+device+", "+command);
+        $.post( debugUrl+"command.php",
+            {command:device+' '+command,secret:secret},
+            function(stuff){
+                $("#logit").append(stuff);
+                $bottom=$("#statusBox").prop('scrollHeight');
+                $("#logit").scrollTop($bottom);
+            }
+        );
+    }
+
+</script>
+
+<!-- Start of First Page -->
+<div data-role="page" id="startpage" data-theme="a">
+
+	<div data-role="header">
+		<h1>Desert Home</h1>
+	</div><!-- /header -->
+    <!-- First a couple of gauges for eye candy -->
+	<div data-role="content" data-theme="a">
+        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a">
+            <center>
+                <canvas id=powerCanvas width=200 height=300></canvas> 
+            </center>
+            </div>
+            <div class="ui-block-b">
+            <center>
+                <canvas id=tempCanvas width=200 height=300></canvas>
+            </center>
+            </div>
+        </div>
+        <!--Now some buttons to get to other features -->
+		<p><a href="#housepopup" data-rel="popup" data-role="button">House Chart</a></p>	
+		<p><a href="#presetspage" data-role="button">Presets</a></p>	
+		<p><a href="#weatherpage" data-role="button">WeatherStation</a></p>	
+		<p><a href="#thermopage" data-role="button">Thermostats</a></p>	
+		<p><a href="#garagepage" data-role="button">Garage</a></p>	
+		<p><a href="#poolpage" data-role="button">Pool</a></p>	
+		<p><a href="#lightspage" data-role="button">Lights</a></p>	
+		<p><a href="#appliancepage" data-role="button">Appliances</a></p>	
+        <div data-role="popup" id="housepopup" data-overlay-theme="a" class="delayedget"
+                data-theme="a" data-corners="false" data-tolerance="15,15">
+            <a href="#" data-rel="back" data-role="button" data-theme="a" 
+                data-icon="delete" data-iconpos="notext" class="ui-btn-right">Close</a>
+            <!--The HighCharts chart goes in here-->
+            <div id='housechart' style='width:90%; height:310px;'> </div>
+        </div>
+          		
+	</div><!-- /content -->
+    
+	<div data-role="footer" data-position="fixed">
+		<h4><marquee>This is a footer, but I don't know what to put here</marquee></h4>
+	</div><!-- /footer -->
+</div><!-- end of start page -->
+
+<!-- Presets -->
+<div data-role="page" id="presetspage">
+    <div data-role="header">
+    <h1>Presets</h1>
+    </div>
+        <div data-role="content" class="ui-content" style="padding-bottom: 52px;">
+            <div class="ui-grid-a ui-responsive">
+                <div class="ui-block-a">
+                 <center>
+                   <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                        ui-btn-inline" onclick="doit('preset','acoff')" >
+                    A/C System Off
+                    </a>
+                </center>
+                </div>
+                <div class="ui-block-b">
+                <center>
+                    <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                        ui-btn-inline" onclick="doit('preset','temp98')" >
+                    Temp=98
+                    </a>
+                </center>
+                </div>
+            </div>
+        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('preset','recirc')" >
+                Fans Recirc
+                </a>
+                </center>
+            </div>
+            <div class="ui-block-b">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('preset','summernight')" >
+                Summer Night
+                </a>
+                </center>
+            </div>
+        </div>
+        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('preset','winternight')" >
+                Winter Night
+                </a>
+                </center>
+            </div>
+            <div class="ui-block-b">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('preset','peakno')" >
+                No Peak Handling
+                </a>
+                </center>
+            </div>
+        </div>
+        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('preset','peakyes')" >
+                Peak Handling On
+                </a>
+                </center>
+            </div>
+            <div class="ui-block-b">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('resetcommand','all')" >
+                Reset Monitor
+                </a>
+                </center>
+            </div>
+        </div>        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" href="#diagpopup" data-rel="popup">
+                Diagnostic Window
+                </a>
+                </center>
+            </div>
+            <div class="ui-block-b">
+                <center>
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" >
+                Reserved
+                </a>
+                </center>
+            </div>
+            <div data-role="popup" id="diagpopup" style=" max-width:400px; overflow-y:scroll;">
+                <div data-role="header" data-theme="a" class="ui-corner-top">
+                  <h1>Diagnostics</h1>
+                </div>
+                Just a little window for diagnostics<br>
+           </div>       
+       </div>
+
+    </div>
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div><!-- end of presets page-->
+</div>
+<!-- Start of weather station page -->
+<div data-role="page" id="weatherpage" data-theme="a">
+
+	<div data-role="header">
+		<h1>Weather Station</h1>
+	</div><!-- /header -->
+    <!-- First a couple of gauges for eye candy -->
+	<div data-role="content" data-theme="a">
+        <div>
+            <center>
+            <canvas id=winddCanvas width=200 height=300></canvas>
+            <canvas id=windsCanvas width=200 height=300></canvas>
+            <canvas id=humidityCanvas width=200 height=300></canvas>
+            <canvas id=wsTempCanvas width=200 height=300></canvas>
+            <canvas id=barometerCanvas width=200 height=300></canvas>
+            </center>
+        </div>
+        <div data-role="collapsible">
+            <h4>Statistics</h4>
+            <p>For Last 24 Hours </p>
+            <p>High Temp: <span id=htt>wait</span></p>
+            <p>Low Temp: <span id=ltt>wait</span></p>
+            <p>Wind Speed High: <span id=hwst>wait</span></p>
+            <p>Rain Fall: <span id=rft>wait</span></p>
+        </div>        		
+	</div><!-- /content -->
+    
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div>
+</div><!-- end of weather station page -->
+
+<div data-role="page" id="thermopage">
+  <div data-role="header">
+  <h1>Thermostats</h1>
+  </div>
+  
+  <div data-role="content" class="ui-content" style="padding-bottom: 52px;">
+        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a"> <!-- Start of North Thermostat Display-->
+                <center>
+                <div id=nstatus style="position:relative; background: linear-gradient(to bottom, rgba(228,245,252,1) 0%,rgba(191,232,249,1) 50%,rgba(159,216,239,1) 69%,rgba(42,176,237,1) 100%); 
+                        height:150px; width:300px; border:1px solid green; 
+                        padding:0px; margin:0px; border-radius:25px;" >
+                    <img id=ntm width=150 height=150 style="position:absolute; left:0px; top:0px;"
+                        src="images/loading.gif" alt=""></img>
+                    <div id=ntt style="position:absolute; top:30px; left:200px;
+                        bottom:0; font-size:80px;">--</div>
+                    <span id=nmode style="position:absolute; left:211px; top:6px;">
+                    Wait
+                    </span>
+                    <span id=ntp style="position:absolute; left:125px; top:6px;">
+                    Wait
+                    </span>
+                    <a href="#nsettings" data-rel="popup"
+                        class="ui-btn ui-btn-inline ui-mini 
+                        ui-icon-gear ui-btn-icon-notext ui-nodisc-icon"
+                        style="position:absolute; left:246px; top:112px;
+                        background-color:transparent; border:none;"
+                        >Settings</a>
+                </div>
+            </center>
+            </div> <!-- end of North Thermostat Display-->
+            <div class="ui-block-b"> <!-- Start of South Thermostat Display-->
+                <center>
+                <div id=sstatus style="position:relative; background: linear-gradient(to bottom, rgba(228,245,252,1) 0%,rgba(191,232,249,1) 50%,rgba(159,216,239,1) 69%,rgba(42,176,237,1) 100%); 
+                        height:150px; width:300px; border:1px solid green; 
+                        padding:0px; margin:0px; border-radius:25px;" >
+                    <img id=stm width=150 height=150 style="position:absolute; left:0px; top:0px;"
+                        src="images/loading.gif" alt=""></img>
+                    <div id=stt style="position:absolute; top:30px; left:200px;
+                        bottom:0; font-size:80px;">--</div>
+                    <span id=smode style="position:absolute; left:211px; top:6px;">
+                    Wait
+                    </span>
+                    <span id=stp style="position:absolute; left:125px; top:6px;">
+                    Wait
+                    </span>
+                    <a href="#ssettings" data-rel="popup"
+                        class="ui-btn ui-btn-inline ui-mini 
+                        ui-icon-gear ui-btn-icon-notext ui-nodisc-icon"
+                        style="position:absolute; left:246px; top:112px;
+                        background-color:transparent; border:none;"
+                        >Settings</a>
+                </div>
+                </center>
+            </div> <!-- End of South Thermostat Display -->
+    </div>    
+    
+    <!-- Start of north settings popup -->
+    <div data-role="popup" id="nsettings" data-arrow="l" data-transition="slide">
+        <a href="#" data-rel="back" data-role="button" 
+            data-theme="a" data-icon="delete" data-iconpos="notext" 
+            class="ui-btn-right">Close</a>
+        <center>
+        <p>Thermostat Settings</p>
+        <span>Temperature</span>
+        <input type="range" name="points" id="ntts" value="71" min="40" max="99">
+        <span style="text-align:center">Mode</span>
+        <fieldset data-role="controlgroup" data-type="horizontal">
+            <legend></legend>
+                <input type="radio" name="nmode-choice" id="ntmOff" value="modeOff" checked="checked" />
+                <label for="ntmOff">Off</label>
+
+                <input type="radio" name="nmode-choice" id="ntmCool" value="modeCool"  />
+                <label for="ntmCool">Cooling</label>
+
+                <input type="radio" name="nmode-choice" id="ntmHeat" value="modeHeat"  />
+                <label for="ntmHeat">Heating</label>
+        </fieldset>
+        <span style="text-align:center">Fan</span>
+        <fieldset data-role="controlgroup" data-type="horizontal">
+            <legend></legend>
+                <input type="radio" name="nfan-choice" id="ntfOn" value="fanOn" checked="checked" />
+                <label for="ntfOn">On</label>
+
+                <input type="radio" name="nfan-choice" id="ntfAuto" value="fanAuto"  />
+                <label for="ntfAuto">Auto</label>
+
+                <input type="radio" name="nfan-choice" id="ntfRecirc" value="fanRecirc"  />
+                <label for="ntfRecirc">Recirc</label>
+        </fieldset>
+        <input id="nthermoSet" type="button" value="Set" />
+    </div>
+    <!-- End of north settings popup -->
+
+    <!-- Start of south settings popup -->
+    <div data-role="popup" id="ssettings" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <p>Thermostat Settings</p>
+            <span>Temperature</span>
+            <input type="range" name="points" id="stts" value="71" min="40" max="99">
+            <span style="text-align:center">Mode</span>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend></legend>
+                    <input type="radio" name="smode-choice" id="stmOff" value="modeOff" checked="checked" />
+                    <label for="stmOff">Off</label>
+
+                    <input type="radio" name="smode-choice" id="stmCool" value="modeCool"  />
+                    <label for="stmCool">Cooling</label>
+
+                    <input type="radio" name="smode-choice" id="stmHeat" value="modeHeat"  />
+                    <label for="stmHeat">Heating</label>
+            </fieldset>
+            <span style="text-align:center">Fan</span>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend></legend>
+                    <input type="radio" name="sfan-choice" id="stfOn" value="fanOn" checked="checked" />
+                    <label for="stfOn">On</label>
+
+                    <input type="radio" name="sfan-choice" id="stfAuto" value="fanAuto"  />
+                    <label for="stfAuto">Auto</label>
+
+                    <input type="radio" name="sfan-choice" id="stfRecirc" value="fanRecirc"  />
+                    <label for="stfRecirc">Recirc</label>
+            </fieldset>
+            <input id="sthermoSet" type="button" value="Set" />
+    </div>
+    <!-- End of South settings popup -->
+    </div> <!-- end of Content -->
+
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div>
+</div> <!-- End of Thermostats page -->
+
+<!-- Start of Garage Page-->
+<div data-role="page" id="garagepage" data-theme="a">
+
+	<div data-role="header">
+		<h1>Garage</h1>
+	</div><!-- /header -->
+    
+	<div data-role="content" data-theme="a">	
+<!--        <div id=garagestatus style="position:relative; background: linear-gradient(to bottom, rgba(228,245,252,1) 0%,rgba(191,232,249,1) 50%,rgba(159,216,239,1) 69%,rgba(42,176,237,1) 100%); 
+            height:200px; width:400px; border:1px solid green; 
+            padding:0px; margin:0px; border-radius:25px;" >
+-->            <ul id="fred" data-icon="gear" data-role="listview">
+                <li>
+                    <a href="#gd1popup" data-rel="popup">
+                    <img id="gd1image" src="images/loading.gif">
+                    <h3>Wide Garage Door</h3>
+                    <p id="gd1status">Wait</p></a>
+                </li>
+                <li>
+                    <a href="#gd2popup" data-rel="popup">
+                    <img id="gd2image" src="images/loading.gif">
+                    <h3>Tall Garage Door</h3>
+                    <p id="gd2">Wait</p></a>
+
+                </li>
+                <li>
+                    <a href="#whpopup" data-rel="popup">
+                    <img id="whimage" src="images/loading.gif">
+                    <h3>Hot Water Heater</h3>
+                    <p id="wh">Wait</p></a>
+                </li>
+                <li>
+                    <a href="#stlpopup" data-rel="popup">
+                    <img id="stlimage" src="images/loading.gif">
+                    <h3>Septic Tank</h3>
+                    <p id="stl">Wait</p></a>
+                </li>
+            </ul>
+            
+        <div data-role="popup" id="gd1popup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Change Garage Door</h3></legend>
+                    <input type="radio" name="gd1" id="gd1open" value="door1open" checked="checked"/>
+                    <label for="gd1open">Open</label>
+
+                    <input type="radio" name="gd1" id="gd1close" value="door1close"  />
+                    <label for="gd1close">Close</label>
+            </fieldset>
+            </center>
+        </div>
+
+        <div data-role="popup" id="gd2popup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Change Garage Door</h3></legend>
+                    <input type="radio" name="gd2radio" id="gd2open" value="door2open" checked="checked" />
+                    <label for="gd2open">Open</label>
+
+                    <input type="radio" name="gd2radio" id="gd2close" value="door2close"  />
+                    <label for="gd2close">Close</label>
+            </fieldset>
+            </center>
+        </div>
+
+        <div data-role="popup" id="whpopup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Water Heater Power</h3></legend>
+                    <input type="radio" name="wh" id="whon" value="waterhon" checked="checked" />
+                    <label for="whon">On</label>
+
+                    <input type="radio" name="wh" id="whoff" value="waterhoff"  />
+                    <label for="whoff">Off</label>
+            </fieldset>
+            </center>
+        </div>
+
+        <div data-role="popup" id="stlpopup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <p>What exactly did you expect to control here??</p>
+            </center>
+        </div>
+ 
+ 
+    </div><!-- /content -->
+    
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div>
+</div><!-- end of garage page -->
+<!--*****************************************************************-->
+<!-- Start of pool page -->
+<div data-role="page" id="poolpage" data-theme="a">
+
+	<div data-role="header">
+		<h1>Pool</h1>
+	</div><!-- /header -->
+    
+	<div data-role="content" data-theme="a">	
+            <ul data-icon="gear" data-role="listview">
+                <li>
+                    <a href="#pmpopup" data-rel="popup">
+                    <img id="pmimage" src="images/ecostarhigh.png">
+                    <h3>Pool Motor</h3>
+                    <p id="pm">Wait</p></a>
+                </li>
+                <li>
+                    <a href="#pwpopup" data-rel="popup">
+                    <img id="pwimage" src="images/waterfalloff.png">
+                    <h3>Waterfall</h3>
+                    <p id="pw">Wait</p></a>
+
+                </li>
+                <li>
+                    <a href="#plpopup" data-rel="popup">
+                    <img id="plimage" src="images/roundlightoff.jpg">
+                    <h3>Light</h3>
+                    <p id="pl">Wait</p></a>
+                </li>
+                <li>
+                    <a href="#pfpopup" data-rel="popup">
+                    <img id="pfimage" src="images/fountainon.png">
+                    <h3>Fountain</h3>
+                    <p id="pf">Wait</p></a>
+                </li>
+            </ul>
+            
+        <div data-role="popup" class="ui-content" id="pmpopup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Set Motor Speed</h3></legend>
+                    <input type="radio" name="pm" id="pmoff" value="pumpoff" checked="checked"/>
+                    <label for="pmoff">Off</label>
+
+                    <input type="radio" name="pm" id="pmlow" value="pumplow"  />
+                    <label for="pmlow">Low</label>
+
+                    <input type="radio" name="pm" id="pmhigh" value="pumphigh"  />
+                    <label for="pmhigh">High</label>
+            </fieldset>
+            </center>
+        </div>
+
+        <div data-role="popup" class="ui-content" id="pwpopup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Waterfall</h3></legend>
+                    <input type="radio" name="pwradio" id="pwon" value="waterfallon" checked="checked" />
+                    <label for="pwon">On</label>
+
+                    <input type="radio" name="pwradio" id="pwoff" value="waterfalloff"  />
+                    <label for="pwoff">Off</label>
+            </fieldset>
+            </center>
+        </div>
+
+        <div data-role="popup" class="ui-content" id="plpopup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Light</h3></legend>
+                    <input type="radio" name="pl" id="plon" value="lighton" checked="checked" />
+                    <label for="plon">On</label>
+
+                    <input type="radio" name="pl" id="ploff" value="lightoff"  />
+                    <label for="ploff">Off</label>
+            </fieldset>
+            </center>
+        </div>
+
+        <div data-role="popup" class="ui-content" id="pfpopup" data-arrow="l" data-transition="slide">
+            <a href="#" data-rel="back" data-role="button" 
+                data-theme="a" data-icon="delete" data-iconpos="notext" 
+                class="ui-btn-right">Close</a>
+            <center>
+            <fieldset data-role="controlgroup" data-type="horizontal">
+                <legend><h3>Fountain</h3></legend>
+                    <input type="radio" name="pf" id="pfon" value="fountainon" checked="checked" />
+                    <label for="pfon">On</label>
+
+                    <input type="radio" name="pf" id="pfoff" value="fountainoff"  />
+                    <label for="pfoff">Off</label>
+            </fieldset>
+            </center>
+        </div>
+  
+    </div><!-- /content -->
+    
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div>
+</div><!-- end of Pool page -->
+
+<!-- Start of lights page -->
+<div data-role="page" id="lightspage" data-theme="a">
+
+	<div data-role="header">
+		<h1>Lights</h1>
+	</div><!-- /header -->
+    
+	<div data-role="content" data-theme="a">
+        <div class="ui-grid-c ui-responsive">
+            <div class="ui-block-a">
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('lights','fPorchToggle')" >
+                <img id=lfp src="images/bulboff.png" />
+                <span></br>Front Porch </span>
+                </a>
+           </div>
+            <div class="ui-block-b">
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('lights','garageToggle')" >
+                <img id=log src="images/bulboff.png" />
+                <span></br>Outside Garage </span>
+                </a>
+           </div>
+            <div class="ui-block-c">
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('lights','cactusToggle')" >
+                <img id=lcs style="top:10; left:10;" src="images/bulboff.png" />
+                <span></br>Cactus Spot </span>
+                </a>
+            </div>
+            <div class="ui-block-d">
+                <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('lights','patioToggle')" >
+                <img id=lp src="images/bulboff.png" />
+                <span></br>Patio </span>
+                </a>
+            </div>
+        </div>
+        <div class="ui-grid-a ui-responsive">
+            <div class="ui-block-a">
+             <center>
+               <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('lights','OutsideLightsOn')" >
+                Outside Lights On
+                </a>
+            </center>
+           </div>
+            <div class="ui-block-b">
+             <center>
+               <a style="width:85%;" class="ui-shadow ui-btn ui-corner-all 
+                    ui-btn-inline" onclick="doit('lights','OutsideLightsOff')" >
+                Outside Lights Off
+                </a>
+             </center>
+          </div>
+        </div>
+    </div><!-- /content -->
+    
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div>
+</div><!-- end of lights page -->
+
+<!--****************************************************************-->
+<!-- Start of AppliancePage -->
+<div data-role="page" id="appliancepage" data-theme="a">
+
+	<div data-role="header">
+		<h1>Appliances</h1>
+	</div><!-- /header -->
+    
+	<div data-role="content" data-theme="a">	
+<!--        <div id=stuffstatus style="position:relative; background: linear-gradient(to bottom, rgba(228,245,252,1) 0%,rgba(191,232,249,1) 50%,rgba(159,216,239,1) 69%,rgba(42,176,237,1) 100%); 
+            height:200px; width:400px; border:1px solid green; 
+            padding:0px; margin:0px; border-radius:25px;" >
+-->            <ul data-icon="gear" data-role="listview">
+                <li>
+                    <a href="#hfpopup" data-rel="popup">
+                    <canvas id=hfCanvas width=200 height=200></canvas>
+                    <div style="position:absolute; left:200px; top:25px;">
+                    <h3>House Freezer</h3>
+                    
+                    <p>Temp:&nbsp<span id="hft">Wait</span></p>
+                    <p>Defroster:&nbsp<span id="hfd">Wait</span></p>
+                    <p>Daily Max:&nbsp<span id="hfmaxt">Wait</span></p>
+                    <p>Daily Min:&nbsp<span id="hfmint">Wait</span></p>
+                    </div>
+                    </a>
+                </li>
+                <li>
+                    <a href="#hrpopup" data-rel="popup">
+                    <canvas id=hrCanvas width=200 height=200></canvas>
+                    <div style="position:absolute; left:200px; top:25px;">
+                    <h3>House Fridge</h3>
+                    <p>Temp:&nbsp<span id="hrt">Wait</span></p>
+                    <p>Daily Max:&nbsp<span id="hrmaxt">Wait</span></p>
+                    <p>Daily Min:&nbsp<span id="hrmint">Wait</span></p>
+                    </div></a>
+
+                </li>
+                <li>
+                    <a href="#gfpopup" data-rel="popup">
+                    <canvas id=gfCanvas width=200 height=200></canvas>
+                    <div style="position:absolute; left:200px; top:25px;">
+                    <h3>Garage Freezer</h3>
+                    <p>Temp:&nbsp<span id="gft">Wait</span></p>
+                    <p>Daily Max:&nbsp<span id="gfmaxt">Wait</span></p>
+                    <p>Daily Min:&nbsp<span id="gfmint">Wait</span></p>
+                    </div></a>
+                </li>
+               <li>
+                    <a href="#pampopup" data-rel="popup" >
+                    <canvas id=pamCanvas width=200 height=200></canvas>
+                    <div style="position:absolute; left:200px; top:25px;">
+                    <h3>Portable Appliance Monitor</h3>
+                    <p id="pammonitor">Still being developed</p>
+                    </div></a>
+                </li>
+            </ul>
+            <!-- popup for House Freezer Graph -->
+            <div data-role="popup" id="hfpopup" data-overlay-theme="a" class="delayedget"
+                    data-theme="a" data-corners="false" data-tolerance="15,15">
+                <a href="#" data-rel="back" data-role="button" data-theme="a" 
+                    data-icon="delete" data-iconpos="notext" class="ui-btn-right">Close</a>
+                <!--The HighCharts chart goes in here-->
+                <div id='hfchart' style='width:90%; height:310px;'> </div>
+            </div>
+            <!-- popup for House Fridge Graph -->
+            <div data-role="popup" id="hrpopup" data-overlay-theme="a" class="delayedget"
+                    data-theme="a" data-corners="false" data-tolerance="15,15">
+                <a href="#" data-rel="back" data-role="button" data-theme="a" data-icon="delete" data-iconpos="notext" class="ui-btn-right">Close</a>
+            <div id='hrchart' style='width:90%; height:310px;'> </div>
+            </div>
+            <!-- popup for Garage Freezer Graph -->
+            <div data-role="popup" id="gfpopup" data-overlay-theme="a"  class="delayedget"
+                    data-theme="a" data-corners="false" data-tolerance="15,15">
+                <a href="#" data-rel="back" data-role="button" data-theme="a" data-icon="delete" data-iconpos="notext" class="ui-btn-right">Close</a>
+            <div id='gfchart' style='width:90%; height:310px;'> </div>
+            </div>
+            <div data-role="popup" id="pampopup" data-overlay-theme="a" class="ui-content"
+                    data-theme="a" data-corners="false" data-tolerance="15,15">
+                <a href="#" data-rel="back" data-role="button" data-theme="a" data-icon="delete" data-iconpos="notext" class="ui-btn-right">Close</a>
+                Still working on this item
+            </div>
+            
+    </div><!-- /content -->
+    
+    <div data-role="footer" data-position="fixed">
+        <h4>
+            <a href="#startpage" data-direction="reverse" data-role="button" data-theme="a">Back</a>
+        </h4>
+    </div>
+</div><!-- end of appliance page -->
+
+<script> // for the diag popup on the presets page
+$('#diagpopup').on({
+  popupbeforeposition: function() {
+    var maxHeight = $(window).height() - 30;
+    $('#diagpopup').css('max-height', maxHeight + 'px');
+  }
+})
+
+
+</script>
+
+<script> // experimenting with having separate script tags
+    // These routines are event handlers for the 
+    // thermostat popups. On open, I stop updating the 
+    // thermostat settings so it doesn't reset my changes
+    // while I do them. 
+    
+    // first the North Thermostat
+    $( "#nsettings" ).on( "popupafterclose", function( event, ui ) {
+        console.log("inside north popup close event handler");
+        okToUpdate=true;
+    });
+    
+    $( "#nsettings" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside north popup open event handler");
+        okToUpdate=false;
+    });
+    // North thermostat 'set' button has been pressed
+    $( "#nthermoSet" ).bind( "click", function(event, ui) {
+        console.log("inside the north thermostat 'set' button event");
+        
+        var setting;
+        setting = $("#ntts").val();
+        if (savedSettings.ntts != setting){
+            doit('nthermo', 'temp='+ setting);
+        }
+        // get mode setting from radio button
+        $("input[id*=ntm]:checked").each(function() {
+            setting=$(this).val();
+        });
+        console.log(savedSettings.ntms+' '+setting);
+        // if the mode has been changed, send command
+        if ((setting == 'modeCool' && savedSettings.ntms != 'Cooling') ||
+           (setting == 'modeHeat' && savedSettings.ntms != 'Heating') ||
+           (setting == 'modeOff' && savedSettings.ntms != 'Off')){
+                doit('nthermo', setting);
+        }
+        // get fan setting from radio buttons
+        $("input[id*=ntf]:checked").each(function() {
+            setting=$(this).val();
+        });
+        console.log(savedSettings.ntfs+' '+setting);
+        // if the fan setting has changed, send command
+        if ((setting == 'fanOn' && savedSettings.ntfs != 'On') ||
+           (setting == 'fanAuto' && savedSettings.ntfs != 'Auto') ||
+           (setting == 'fanRecirc' && savedSettings.ntfs != 'Recirc')){
+                doit('nthermo', setting);
+        }
+        $("#nsettings").popup("close");
+    });
+    // now the south Thermostat
+    $( "#ssettings" ).on( "popupafterclose", function( event, ui ) {
+        console.log("inside south popup close event handler");
+        okToUpdate=true;
+    });
+    
+    $( "#ssettings" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside south popup open event handler");
+        okToUpdate=false;
+    });
+    // South thermostat 'set' button has been pressed
+    $( "#sthermoSet" ).bind( "click", function(event, ui) {
+        console.log("inside south thermostat 'set' button event");
+        
+        var setting;
+        setting = $("#stts").val();
+        if (savedSettings.stts != setting){
+            doit('sthermo', 'temp='+ setting);
+        }
+        // get mode setting from radio button
+        $("input[id*=stm]:checked").each(function() {
+            setting=$(this).val();
+        });
+        console.log(savedSettings.stms+' '+setting);
+        // if the mode has been changed, send command
+        if ((setting == 'modeCool' && savedSettings.stms != 'Cooling') ||
+           (setting == 'modeHeat' && savedSettings.stms != 'Heating') ||
+           (setting == 'modeOff' && savedSettings.stms != 'Off')){
+                doit('sthermo', setting);
+        }
+        // get fan setting from radio buttons
+        $("input[id*=stf]:checked").each(function() {
+            setting=$(this).val();
+        });
+        console.log(savedSettings.stfs+' '+setting);
+        // if the fan setting has changed, send command
+        if ((setting == 'fanOn' && savedSettings.stfs != 'On') ||
+           (setting == 'fanAuto' && savedSettings.stfs != 'Auto') ||
+           (setting == 'fanRecirc' && savedSettings.stfs != 'Recirc')){
+                doit('sthermo', setting);
+        }
+        $("#ssettings").popup("close");
+    }); // End of thermostat stuff
+</script>
+
+<script> // Beginning of Garage Code
+    // These routines are event handlers for the 
+    // Garage popups. On open, I stop updating the 
+    // settings so it doesn't reset my changes
+    // while I do them. 
+    
+    // first gd1 popup
+    $( "#gd1popup" ).on( "popupafterclose", function( event, ui ) {
+        console.log("inside gd1 popup close event handler");
+        okToUpdate=true;
+    });
+    
+    $( "#gd1popup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside gd1 popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // gd1 radio button has been pressed
+    $( "#gd1popup" ).bind( "change", function(event, ui) {
+        console.log("inside gd1radio button event");
+        var setting;
+        $("input[id*=gd1]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('garage', setting);
+        $("#gd1popup").popup("close");
+    }); // end of gd1 popup
+    
+    // now the gd2 popup
+    $( "#gd2popup" ).on( "popupafterclose", function( event, ui ) {
+        console.log("inside gd2 popup close event handler");
+        okToUpdate=true;
+    });
+    
+    $( "#gd2popup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside gd2 popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // gd1 radio button has been pressed
+    $( "#gd2popup" ).bind( "change", function(event, ui) {
+        console.log("inside gd2radio button event");
+        var setting;
+        $("input[id*=gd2]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('garage', setting);
+        $("#gd2popup").popup("close");
+    }); // end of gd2 popup
+    
+    // and the hot water heater
+    $( "#whpopup" ).on( "popupafterclose", function( event, ui ) {
+        console.log("inside wh popup close event handler");
+        okToUpdate=true;
+    });
+    $( "#whpopup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside wh popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // gd2 radio button has been pressed
+    $( "#whpopup" ).bind( "change", function(event, ui) {
+        console.log("inside whradio button event");
+        var setting;
+        $("input[id*=wh]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('garage', setting);
+        $("#whpopup").popup("close");
+    }); // end of wh popup
+    
+</script> <!-- End of garage stuff -->
+
+<!-- gauges (Appliances, House and Weather Station) chart code -->
+<script>
+    powerGauge = new steelseries.Radial('powerCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:0,
+        maxValue:15000,
+        size: 200,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        lcdDecimals: 0,
+        section: null,
+        area: null,
+        titleString: 'Real Power',
+        unitString: 'Watts',
+        threshold: 10000,
+        lcdVisible: true
+    });
+    tempGauge = new steelseries.Radial('tempCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:0,
+        maxValue:140,
+        size: 200,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 1,
+        area: null,
+        titleString: 'Outside Temp',
+        unitString: '°F',
+        threshold: 100,
+        lcdVisible: true
+    });
+    <!--winddGauge = new steelseries.Compass('winddCanvas', { -->
+     winddGauge = new steelseries.WindDirection('winddCanvas', {
+        <!--gaugeType: steelseries.GaugeType.TYPE4,-->
+        size: 200,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        lcdTitleStrings: ['Latest', 'Previous'],
+        section: null,
+        area: null
+    });
+    windsGauge = new steelseries.Radial('windsCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        size: 200,
+        minValue:0,
+        maxValue:30,
+        titleString: 'Wind Speed',
+        unitString: 'MPH',
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        threshold: 10,
+        lcdVisible: true
+    });
+    humidityGauge = new steelseries.Radial('humidityCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:0,
+        maxValue:100,
+        size: 200,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        lcdDecimals: 0,
+        section: null,
+        area: null,
+        titleString: 'Humidity',
+        unitString: '%',
+        threshold: 50,
+        lcdVisible: true
+    });
+    wsTempGauge = new steelseries.Radial('wsTempCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:0,
+        maxValue:140,
+        size: 200,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 0,
+        area: null,
+        titleString: 'Roof Top Temp',
+        unitString: '°F',
+        threshold: 100,
+        lcdVisible: true
+    });
+    barometerGauge = new steelseries.Radial('barometerCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:930,
+        maxValue:1070,
+        size: 200,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 1,
+        area: null,
+        titleString: 'Barometric Pressure',
+        unitString: 'mbar',
+        threshold: 1000,
+        ledVisible: false,
+        lcdVisible: true
+    });
+    houseFreezerGauge = new steelseries.Radial('hfCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:-15,
+        maxValue:60,
+        size: 150,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 1,
+        area: null,
+        titleString: 'Temperature',
+        unitString: '°F',
+        threshold: 30,
+        ledVisible: true,
+        lcdVisible: true
+    });
+    houseFridgeGauge = new steelseries.Radial('hrCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:20,
+        maxValue:60,
+        size: 150,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 1,
+        area: null,
+        titleString: 'Temperature',
+        unitString: '°F',
+        threshold: 50,
+        ledVisible: true,
+        lcdVisible: true
+    });
+    garageFreezerGauge = new steelseries.Radial('gfCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:-20,
+        maxValue:40,
+        size: 150,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 1,
+        area: null,
+        titleString: 'Temperature',
+        unitString: '°F',
+        threshold: 30,
+        ledVisible: true,
+        lcdVisible: true
+    });
+    applianceMonitorGauge = new steelseries.Radial('pamCanvas', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        minValue:0,
+        maxValue:1500,
+        size: 150,
+        frameDesign: framedesign,
+        knobStyle: knobstyle,
+        pointerType: pointertype,
+        backgroundColor: backgroundcolor,
+        section: null,
+        lcdDecimals: 1,
+        area: null,
+        titleString: 'Power',
+        unitString: 'Watts',
+        threshold: 1000,
+        ledVisible: true,
+        lcdVisible: true
+    });
+
+    $(".delayedget").on("popupbeforeposition", function() {
+        console.log("inside delayed get items");
+        console.log("popup before position: ", $(this).prop('id'));
+        switch($(this).prop('id')){
+            case 'housepopup':
+                fillinhouse();
+                break;
+            case 'hfpopup':
+                fillinhfreezer();
+                break;
+            case 'hrpopup':
+                fillinhfridge();
+                break;
+            case 'gfpopup':
+                fillingfreezer();
+                break;
+            default:
+                break;
+        }
+    });
+    
+    // This still grabs data from xively. I plan on 
+    // stopping that real soon now in favor of my own
+    // database.
+    function fillinhouse(){
+			var options = {
+				chart: {
+					renderTo: 'housechart',
+					type: 'line',
+					backgroundColor: 'rgb(240,255,255)',
+					borderColor: 'rgb(0,0,0)',
+					borderWidth: 2,
+					zoomType: 'x'
+				},
+				title: {
+					text: 'Desert Home Chart'
+				},
+				plotOptions: {
+					series: {
+						marker: {
+							radius: 2
+						}
+					}
+				},
+				yAxis: [{
+					labels:{
+						format: '{value}W',
+						style: {
+							color: Highcharts.getOptions().colors[0]
+						}
+					},
+					title: {
+						text: 'Watts',
+						style: {
+							color: Highcharts.getOptions().colors[0]
+						}
+					},
+					minRange: 0.1,
+					min: 0
+				}, {
+					labels:{
+						format: '{value}°F',
+						style: {
+							color: Highcharts.getOptions().colors[1]
+						}
+					},
+					title: {
+						text: 'Temp °F',
+						style: {
+							color: Highcharts.getOptions().colors[1]
+						}
+					},
+					minRange: 0.1,
+					min: 0,
+					opposite: true
+				}],
+				xAxis: {
+					type: "datetime",
+					name: "Time"
+				},
+				series: [{
+					name: 'Power Usage',
+					data: []
+				}, {
+					name: 'Outside Temperature',
+					yAxis: 1,
+					data:[]
+				}]
+			};
+
+        // Set the global ajax config to synchronous 
+        // which doesn't work and causes a warning in the log..
+        // but I have to do it or the getJSON() doesn't work.
+        $.ajaxSetup({
+            async: false
+        });
+        var url='http://api.xively.com/v2/feeds/9511.json?&key=GtGuoMKJSqv2tzqGvWaITLhlEDUxrYXSixqPSmlyj-s&per_page=1000&datastreams=0,7&duration=6hours&interval=0';
+        var d=new Date();
+        // there's a bug in the Xively api, you HAVE to specify the end date
+        // or the data comes back wrong.
+        startpoint="&end=" + d.toISOString();
+        //alert ("I made " + startpoint);
+
+        // Set the global ajax config to synchronous 
+        // I have to do this to get the data before the chart is drawn.
+        $.ajaxSetup({
+            async: false
+        });
+        var loopcount = 4;
+        
+        for ( var i=0; i<loopcount; i++ ){
+            //console.log(url+startpoint);
+            $.getJSON(url+startpoint,  function(data) {
+                // get the data out of the response and put it in an array for charting
+                $.each(data.datastreams[0].datapoints, function(k,v){
+                    options.series[0].data.push([Date.parse(v.at)-(7*60*60*1000),parseFloat(v.value)]);
+                });
+                $.each(data.datastreams[1].datapoints, function(k,v){
+                    options.series[1].data.push([Date.parse(v.at)-(7*60*60*1000),parseFloat(v.value)]);
+                });
+                // In case I want to see the data array that will be charted during debugging
+                //console.log(JSON.stringify(options.series[0].data,null, 4));
+                // In case I want to show the JSON date received from the cloud
+                //console.log(JSON.stringify(data,null, 4));
+                startpoint = "&end=" + data.datastreams[0].datapoints[0].at;
+            });
+        };
+        // In case I want to see the data array during debugging
+        //console.log(JSON.stringify(options.series[0].data,null, 4));
+        
+        // Now I have to sort the arrays by date
+        for ( var i=0; i<2; i++ ){
+            options.series[i].data.sort(function(a,b){
+                return(a[0]-b[0]);
+                })
+        };
+        // and finally show the chart
+        var chart = new Highcharts.Chart(options);
+    }
+
+    function fillinhfreezer(){
+        var options = {
+            chart: {
+                renderTo: 'hfchart',
+                type: 'line',
+                backgroundColor: 'rgb(240,255,255)',
+                borderColor: 'rgb(0,0,0)',
+                borderWidth: 2,
+                zoomType: 'x'
+            },
+            title: {
+                text: 'Desert Home: House Freezer'
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        radius: 2
+                    }
+                }
+            },
+            yAxis: [{
+                labels:{
+                    format: '{value} F',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                title: {
+                    text: 'Temperature',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                minRange: -15,
+                tickInterval: 1,
+                min: -10,
+                max: 70,
+                opposite: false
+            },{
+                labels:{
+                    format: '{value}W',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                title: {
+                    text: 'Watts',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                minRange: 1,
+                min: 0,
+                max: 500,
+                opposite: true
+            }
+            ],
+            xAxis: {
+                type: "datetime",
+                name: "Time"
+            },
+            series: [{
+                yAxis: 0,
+                name: 'Temperature',
+                data: []
+            }, {
+                name: 'Power',
+                yAxis: 1,
+                data:[]
+            }]
+        };
+
+        // Set the global ajax config to synchronous 
+        // which doesn't work and causes a warning in the log..
+        // but I have to do it or the getJSON() doesn't work.
+        $.ajaxSetup({
+            async: false
+        });
+        var url=debugUrl+'freezerdata.php';
+        var data;
+        console.log("going to get hfreezer data");
+        $.getJSON(url)
+            .done(function( data ) {
+                console.log( "JSON data grab done");
+                $.each( data, function( key, val ) {
+                    //console.log("Itms: " + key + " " + val);
+                    //The conversion below has TZ adjustment for Phoenix time
+                    options.series[0].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                    options.series[1].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["watts"])]);
+                });
+            })
+            .fail(function( jqxhr, textStatus, error ) {
+                var err = textStatus + ", " + error;
+                console.log( "Request Failed Somehow: " + err );
+            });
+        // sort table of data before display
+        options.series[0].data.sort(function(a,b){
+            return(a[0]-b[0]);
+            });
+        options.series[1].data.sort(function(a,b){
+            return(a[0]-b[0]);
+            });
+        console.log(options.series[0].data);
+        var chart = new Highcharts.Chart(options);
+    }
+
+    function fillinhfridge(){
+        var options = {
+            chart: {
+                renderTo: 'hrchart',
+                type: 'line',
+                backgroundColor: 'rgb(240,255,255)',
+                borderColor: 'rgb(0,0,0)',
+                borderWidth: 2,
+                zoomType: 'x'
+            },
+            title: {
+                text: 'Desert Home: House Fridge'
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        radius: 2
+                    }
+                }
+            },
+            yAxis: [{
+                labels:{
+                    format: '{value} F',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                title: {
+                    text: 'Temperature',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                minRange: -15,
+                tickInterval: 1,
+                min: 20,
+                max: 70,
+                opposite: false
+            },{
+                labels:{
+                    format: '{value}W',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                title: {
+                    text: 'Watts',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                minRange: 0.1,
+                min: 0,
+                max: 200,
+                opposite: true
+            }
+            ],
+            xAxis: {
+                type: "datetime",
+                name: "Time"
+            },
+            series: [{
+                name: 'Temperature',
+                yAxis: 0,
+                data: []
+            }, {
+                name: 'Power',
+                yAxis: 1,
+                data:[]
+            }]
+        };
+
+        // Set the global ajax config to synchronous 
+        $.ajaxSetup({
+            async: false
+        });
+        var url=debugUrl+'fridgedata.php';
+        var data;
+        $.getJSON(url)
+            .done(function( data ) {
+                //console.log( "JSON data grab done" + JSON.stringify(data, null, 4));
+                $.each( data, function( key, val ) {
+                    //console.log("Items: " + key + " " + val["temp"] + " " + val["watts"]);
+                    //The conversion below has TZ adjustment for Phoenix time
+                    options.series[0].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                    options.series[1].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["watts"])]);
+                });
+            })
+            .fail(function( jqxhr, textStatus, error ) {
+                var err = textStatus + ", " + error;
+                console.log( "Request Failed Somehow: " + err );
+            });
+        // sort tables of data before display
+        options.series[0].data.sort(function(a,b){
+            return(a[0]-b[0]);
+            });
+        options.series[1].data.sort(function(a,b){
+            return(a[0]-b[0]);
+            });
+        var chart = new Highcharts.Chart(options);
+
+    }
+
+    function fillingfreezer(){
+        var options = {
+            chart: {
+                renderTo: 'gfchart',
+                type: 'line',
+                backgroundColor: 'rgb(240,255,255)',
+                borderColor: 'rgb(0,0,0)',
+                borderWidth: 2,
+                zoomType: 'x'
+            },
+            title: {
+                text: 'Desert Home: Garage Freezer'
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        radius: 2
+                    }
+                }
+            },
+            yAxis: [{
+                labels:{
+                    format: '{value} F',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                title: {
+                    text: 'Temperature',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                minRange: -15,
+                tickInterval: 1,
+                min: -10,
+                max: 100,
+                opposite: false
+            },{
+                labels:{
+                    format: '{value}W',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                title: {
+                    text: 'Watts',
+                    style: {
+                        color: Highcharts.getOptions().colors[0]
+                    }
+                },
+                minRange: 0.1,
+                min: 0,
+                max: 200,
+                opposite: true
+            }
+            ],
+            xAxis: {
+                type: "datetime",
+                name: "Time"
+            },
+            series: [{
+                name: 'Temperature',
+                yAxis: 0,
+                data: []
+            }, {
+                name: 'Power',
+                yAxis: 1,
+                data:[]
+            }]
+        };
+
+        // Set the global ajax config to synchronous 
+        $.ajaxSetup({
+            async: false
+        });
+        var url=debugUrl+'gfreezerdata.php';
+        var data;
+        $.getJSON(url)
+            .done(function( data ) {
+                //console.log( "JSON data grab done" + JSON.stringify(data, null, 4));
+                $.each( data, function( key, val ) {
+                    //console.log("Items: " + key + " " + val["temp"] + " " + val["watts"]);
+                    //The conversion below has TZ adjustment for Phoenix time
+                    options.series[0].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                    options.series[1].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["watts"])]);
+                });
+            })
+            .fail(function( jqxhr, textStatus, error ) {
+                var err = textStatus + ", " + error;
+                console.log( "Request Failed Somehow: " + err );
+            });
+        // sort tables of data before display
+        options.series[0].data.sort(function(a,b){
+            return(a[0]-b[0]);
+            });
+        options.series[1].data.sort(function(a,b){
+            return(a[0]-b[0]);
+            });
+        var chart = new Highcharts.Chart(options);
+
+    }
+    
+</script> <!-- End of the gauges and charts code -->
+<!--************************************************************-->
+<script> // Beginning of Pool code
+    // These routines are event handlers for the 
+    // Pool popups. On open, I stop updating the 
+    // settings so it doesn't reset my changes
+    // while I do them. 
+    
+    // first the pool motor popup
+    $( "#pmpopup" ).on( "popupafterclose", function( event, ui ) {
+        console.log("inside pool motor popup close event handler");
+        okToUpdate=true;
+    });
+    
+    $( "#pmpopup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside pool motor popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // pool motor radio button has been pressed
+    $( "#pmpopup" ).bind( "change", function(event, ui) {
+        console.log("inside pool motor radio button event");
+        var setting;
+        $("input[id*=pm]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('pool', setting);
+        $("#pmpopup").popup("close");
+    }); // end of pool motor popup
+    
+    $( "#pwpopup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside pool waterfall popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // pool waterfall radio button has been pressed
+    $( "#pwpopup" ).bind( "change", function(event, ui) {
+        console.log("inside pool waterfall button event");
+        var setting;
+        $("input[id*=pw]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('pool', setting);
+        $("#pwpopup").popup("close");
+    }); // end of pool waterfall popup
+    
+    $( "#plpopup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside pool light popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // pool light radio button has been pressed
+    $( "#plpopup" ).bind( "change", function(event, ui) {
+        console.log("inside pool light button event");
+        var setting;
+        $("input[id*=pl]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('pool', setting);
+        $("#plpopup").popup("close");
+    }); // end of pool light popup
+    
+    $( "#pfpopup" ).on( "popupafteropen", function( event, ui ) {
+        console.log("inside pool fountain popup open event handler");
+        okToUpdate=false;
+    });
+    // I bind to the popup since there's only one radio button
+    // fountain radio button has been pressed
+    $( "#pfpopup" ).bind( "change", function(event, ui) {
+        console.log("inside pool fountain button event");
+        var setting;
+        $("input[id*=pf]:checked").each(function() {
+            setting=$(this).val();
+        });
+        doit('pool', setting);
+        $("#pfpopup").popup("close");
+    }); // end of pool fountain popup
+    
+</script> <!-- End of pool code -->
+</body>
+</html>
+

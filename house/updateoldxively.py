@@ -79,7 +79,7 @@ def updateXively():
             at=now),
         xively.Datastream(id='0', 
             current_value = getIt(hc,
-                "select rpower from power"),  
+                "select rpower from power order by utime desc limit 1"),  
             at=now),
         xively.Datastream(id='4', 
             current_value = getIt(hc,
