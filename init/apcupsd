@@ -1,0 +1,91 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:		apcupsd
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Should-Start:		$local_fs
+# Should-Stop:		$local_fs
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description:	Starts apcupsd daemon
+# Description:		apcupsd provides UPS power management for APC products.
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/sbin/apcupsd
+CONFIG=/etc/default/apcupsd
+NAME=apcupsd
+DESC="UPS power management"
+
+test -x $DAEMON || exit 0
+test -e $CONFIG || exit 0
+
+set -e
+
+. $CONFIG
+
+echo "Dave is in ups code messing around"
+echo "Dave found $1 "
+if [ -f /etc/apcupsd/powerfail ]; then
+	echo "Dave Found powerfail"
+else
+        echo "Dave No powerfail Found"
+fi
+
+if [ "x$ISCONFIGURED" != "xyes" ] ;
+then
+	echo "Please check your configuration ISCONFIGURED in /etc/default/apcupsd"
+	exit 0
+fi
+
+
+case "$1" in
+	start)
+		echo -n "Starting $DESC: "
+
+		rm -f /etc/apcupsd/powerfail
+
+		if [ "`pidof apcupsd`" = "" ]
+		then
+			start-stop-daemon --start --quiet --exec $DAEMON
+			echo "$NAME."
+		else
+			echo ""
+			echo "A copy of the daemon is still running.  If you just stopped it,"
+			echo "please wait about 5 seconds for it to shut down."
+			exit 0
+		fi
+		;;
+
+	stop)
+		echo -n "Stopping $DESC: "
+		start-stop-daemon --stop --oknodo --pidfile /var/run/apcupsd.pid || echo "Not Running."
+		rm -f /var/run/apcupsd.pid
+		echo "$NAME."
+		if [ -f /etc/apcupsd/powerfail ]; then
+        		echo "Dave Doing  powerfail"
+			/etc/init.d/ups-monitor poweroff
+		fi
+		sync; sync;
+		;;
+
+	restart|force-reload)
+		$0 stop
+		sleep 10
+		$0 start
+		;;
+
+	status)
+		#/sbin/apcaccess status
+		$APCACCESS status
+		;;
+
+	*)
+		N=/etc/init.d/$NAME
+		echo "Usage: $N {start|stop|restart|force-reload}" >&2
+		exit 1
+		;;
+esac
+
+exit 0

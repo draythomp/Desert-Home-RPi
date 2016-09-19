@@ -86,10 +86,11 @@ def handleTempSensor(data):
                 dbTimeStamp(), 
                 jData['TempSensor']['name']
                 ))
-        hdbconn.commit()
+            hdbconn.commit()
+            hdbconn.close()
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
-    hdbconn.close()
+        hdbconn.close()
     if (jData['TempSensor']['command'] != 'nothing'):
         lprint("Button Command from sensor")
         #got a command from the sensor

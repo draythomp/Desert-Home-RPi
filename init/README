@@ -1,4 +1,7 @@
 These are the configuration files to start the processes automatically using
-upstart.  They go in the /etc/init directory.
+systemctl. They go in the /etc/systemd/system directory
 
 The file 'house' is the logrotate config file I use.
+
+The file UPS files I modified for ups control go into the /etc/apcupsd directoryexcept the script apcupsd, it goes into /etc/initd and links into rc0.d
+
