@@ -110,6 +110,11 @@ case "garage":
 	$c = "Garage%20$commandParts[1]";
     ipControl("$houseMonitor", "pCommand?command=$c");
 	break;
+case "freezer":
+	#echo "case got freezer<br />";
+	$c = "Freezer%20$commandParts[1]";
+    ipControl("$houseMonitor", "pCommand?command=$c");
+	break;
 case "pool":
 	#echo "case got pool<br />";
 	$c = "Pool%20$commandParts[1]";

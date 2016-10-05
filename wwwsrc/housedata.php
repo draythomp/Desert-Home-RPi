@@ -106,48 +106,33 @@ $stl = mysqlGetIt(
 	'select level from septic;', $hdb);
     
 # The house freezer defrost controller
+$tmp = mysqlGetIt('select max(timestamp) from housefreezer;',$hdb);
 $hft = mysqlGetIt(
-    'select temperature from housefreezer where utime = (select max(utime) from housefreezer);',$hdb);
+    "select temperature from housefreezer where timestamp = '$tmp';", $hdb);
 $hfd = mysqlGetIt(
-    'select defroster from housefreezer where utime = (select max(utime) from housefreezer);',$hdb);
+    "select defroster from housefreezer where timestamp = '$tmp';",$hdb);
 $hfmaxt = mysqlGetIt(
-    'SELECT max(`temperature`)
-    FROM `housefreezer`
-    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefreezer`) t ON TRUE
-    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    'select max(temperature) from housefreezer where timestamp >= now() - interval 1 day;', $hdb);
 $hfmint = mysqlGetIt(
-    'SELECT min(`temperature`)
-    FROM `housefreezer`
-    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefreezer`) t ON TRUE
-    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    'select min(temperature) from housefreezer where timestamp >= now() - interval 1 day;', $hdb);
 
 # The house fridge monitor
+$tmp = mysqlGetIt('select max(timestamp) from housefridge;',$hdb);
 $hrt = mysqlGetIt(
-    'select temperature from housefridge where utime = (select max(utime) from housefridge);',$hdb);
+    "select temperature from housefridge where timestamp = '$tmp';",$hdb);
 $hrmaxt = mysqlGetIt(
-    'SELECT max(`temperature`)
-    FROM `housefridge`
-    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefridge`) t ON TRUE
-    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    'select max(temperature) from housefridge where timestamp >= now() - interval 1 day;', $hdb);
 $hrmint = mysqlGetIt(
-    'SELECT min(`temperature`)
-    FROM `housefridge`
-    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `housefridge`) t ON TRUE
-    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    'select min(temperature) from housefridge where timestamp >= now() - interval 1 day;', $hdb);
 
 # The garage freezer monitor 
+$tmp = mysqlGetIt('select max(timestamp) from garagefreezer;',$hdb);
 $gft = mysqlGetIt(
-    'select temperature from garagefreezer where utime = (select max(utime) from garagefreezer);',$hdb);
+    "select temperature from garagefreezer where timestamp = '$tmp'",$hdb);
 $gfmaxt = mysqlGetIt(
-    'SELECT max(`temperature`)
-    FROM `garagefreezer`
-    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `garagefreezer`) t ON TRUE
-    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    'select max(temperature) from garagefreezer where timestamp >= now() - interval 1 day;', $hdb);
 $gfmint = mysqlGetIt(
-    'SELECT min(`temperature`)
-    FROM `garagefreezer`
-    INNER JOIN (SELECT MAX(`timestamp`) as max FROM `garagefreezer`) t ON TRUE
-    WHERE `timestamp` >= (max - interval 1 day);', $hdb);
+    'select min(temperature) from garagefreezer where timestamp >= now() - interval 1 day;', $hdb);
     
 # The Wemo switches
 $lfp = mysqlGetIt(
@@ -164,7 +149,7 @@ $lp = mysqlGetIt(
 # an http get to gather the data
 $stationIp = json_decode($config,true)["giveweather"]["ipAddress"];
 $stationPort = json_decode($config,true)["giveweather"]["port"];
-# Now go the data from the weather station
+# Now go get the data from the weather station
 $response = file_get_contents("http://$stationIp:$stationPort/status");
 # The $response variable has the json string returned.
 # So, convert the json into variables

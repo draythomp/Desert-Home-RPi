@@ -1,0 +1,5 @@
+[Samba4]
+title=Samba 4
+description=Samba 4 as domain controller
+ports=53|88|135/tcp|137/udp|138/udp|139/tcp|389|445/tcp|464|636/tcp|1024:5000/tcp|3268/tcp|3269/tcp|5353
+

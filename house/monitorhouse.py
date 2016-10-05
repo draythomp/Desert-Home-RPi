@@ -455,6 +455,14 @@ def handleCommand(command):
             sendPacket(BROADCAST, "Garage,door2\r")
         else:
             lprint ("haven't done this yet")
+    elif device == 'Freezer':
+        lprint ("Freezer command", todo)
+        if (todo == 'defroston'):
+            sendPacket(BROADCAST, "Freezer,DefrostOn\r")
+        elif (todo == 'defrostoff'):
+            sendPacket(BROADCAST, "Freezer,DefrostOff\r")
+        else:
+            lprint ("haven't done this yet")
     # presets are what other folk call 'scenes'. Where you want
     # several things to happen based on a single command.  Turn off 
     # the lights, turn down the thermostat, lock the door, etc.

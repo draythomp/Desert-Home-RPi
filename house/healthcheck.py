@@ -8,8 +8,10 @@ from datetime import timedelta
 import time
 import MySQLdb as mdb
 import sys
-#import sysv_ipc
 import cherrypy
+import smtplib
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEText import MIMEText
 
 def sendMail(subject, body):
     global mailTime
@@ -18,16 +20,22 @@ def sendMail(subject, body):
     if ( now < (mailTime + timedelta(hours=1)) ):
         return
     try:
-        lprint (subprocess.check_output(["sendEmail", 
-            "-f", hv["emailaddr"],
-            '-t', hv["emailaddr"],
-            '-u', subject,
-            '-m', body,
-            '-s', 'smtp.gmail.com:587',
-            '-o',
-            'tls=yes',
-            '-xu', hv["emailuser"],
-            '-xp', hv["mailpassword"]], stderr=subprocess.STDOUT))
+        fromaddr = hv["emailaddr"]
+        toaddr = hv["emailaddr"]
+        msg = MIMEMultipart()
+        msg['From'] = fromaddr
+        msg['To'] = toaddr
+        msg['Subject'] = subject
+         
+        body = body
+        msg.attach(MIMEText(body, 'plain'))
+         
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(fromaddr, hv["mailpassword"])
+        text = msg.as_string()
+        server.sendmail(fromaddr, toaddr, text)
+        server.quit()    
     except subprocess.CalledProcessError, e:
         lprint (e.output)
         lprint (e.cmd)
@@ -138,7 +146,7 @@ def checkOtherThings():
     return problemThings
     
 processList = ["monitorhouse.py", "wemocontrol.py", "iriscontrol.py",
-                "events.py", "updateoldxively.py"]
+                "events.py", "updateoldxively.py", "mqttlogger.py", "savehouse.py"]
 recordList = ["garage", "pool", "power", "septic", "thermostats", 
                 "smartswitch", "lights", "oldxively"]
 
