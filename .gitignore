@@ -2,3 +2,6 @@ house/getweather
 house/houseutils.pyc
 wwwsrc/weathertesting.php
 decode/
+alexa/
+house/keys/aws-iot-rootCA.crt
+house/keys/

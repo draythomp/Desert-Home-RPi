@@ -189,7 +189,7 @@ def handlePacket(data):
             #print data['rf_data']
             jData = json.loads(data['rf_data'][:-1])
             if "TempSensor" in jData.keys():
-                lprint("Temp Sensor Packet:", jData)
+                #lprint("Temp Sensor Packet:", jData)
                 #lprint(jData)
                 #pass this off to the mqtt server
                 err = mqttc.publish("Desert-Home/Device/TempSensor",data['rf_data'][:-1],retain=True);
@@ -318,13 +318,13 @@ def handlePacket(data):
                     lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
                 hdbconn.close()
             elif rxList[0] == 'HouseFreezer':
-                print("monitorhouse got Freezer Packet")
-                print(rxList)
+                #print("monitorhouse got Freezer Packet")
+                #print(rxList)
                 # Convert the string received into a json string for sending
                 # to mqtt for the savehouse process
-                print (json.dumps({"housefreezer":{"temperature":rxList[3][:-1],
-                    "defroster":rxList[2],
-                    "utime": dbTimeStamp()}}) )
+                #print (json.dumps({"housefreezer":{"temperature":rxList[3][:-1],
+                #    "defroster":rxList[2],
+                #    "utime": dbTimeStamp()}}) )
                 err = mqttc.publish("Desert-Home/Device/HouseFreezer",
                     json.dumps({"housefreezer":{"temperature":rxList[3][:-1],
                     "defroster":rxList[2],
@@ -333,12 +333,12 @@ def handlePacket(data):
                 if err[0] != 0:
                     lprint("got error {} on publish".format(err[0]))
             elif rxList[0] == 'HouseFridge':
-                print("monitorhouse got Fridge Packet")
-                print(rxList)
+                #print("monitorhouse got Fridge Packet")
+                #print(rxList)
                 # Convert the string received into a json string for sending
                 # to mqtt for the savehouse process
-                print (json.dumps({"housefridge":{"temperature":rxList[2][:-1],
-                    "utime": dbTimeStamp()}}) )
+                #print (json.dumps({"housefridge":{"temperature":rxList[2][:-1],
+                #    "utime": dbTimeStamp()}}) )
                 err = mqttc.publish("Desert-Home/Device/HouseFridge",
                     json.dumps({"housefridge":{"temperature":rxList[2][:-1],
                     "utime": dbTimeStamp()}}),
@@ -346,12 +346,12 @@ def handlePacket(data):
                 if err[0] != 0:
                     lprint("got error {} on publish".format(err[0]))
             elif rxList[0] == 'GarageFreezer':
-                print("monitorhouse got Garage Freezer Packet")
-                print(rxList)
+                #print("monitorhouse got Garage Freezer Packet")
+                #print(rxList)
                 # Convert the string received into a json string for sending
                 # to mqtt for the savehouse process
-                print (json.dumps({"garagefreezer":{"temperature":rxList[2][:-1],
-                    "utime": dbTimeStamp()}}) )
+                #print (json.dumps({"garagefreezer":{"temperature":rxList[2][:-1],
+                #    "utime": dbTimeStamp()}}) )
                 err = mqttc.publish("Desert-Home/Device/GarageFreezer",
                     json.dumps({"garagefreezer":{"temperature":rxList[2][:-1],
                     "utime": dbTimeStamp()}}),

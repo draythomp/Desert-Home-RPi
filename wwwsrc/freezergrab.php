@@ -40,10 +40,10 @@ mysql_select_db($hdbName, $hdb) or die('Unable to open database!' . mysql_error(
 # OK, got the database open and ready to use
 #
 $stuff = mysql_query(
-	"SELECT temperature, watts, timestamp FROM housefreezer where timestamp > date_sub(now(), interval 24 hour) ORDER BY timestamp;", 
-    $hdb);
+	"SELECT temperature, watts, timestamp FROM housefreezer where timestamp between  '2016-11-20' and date_add('2016-11-20', interval 24 hour) order by timestamp;",
+ $hdb);
 if (!$stuff){
-        echo mysql_error($hdb);
+        echo mysql_error($conn);
 }
 $giveback = array();
 while ($row = mysql_fetch_array($stuff, MYSQL_ASSOC)) {

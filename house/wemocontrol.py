@@ -8,14 +8,43 @@ import time
 import urllib2
 import BaseHTTPServer
 from socket import *
-import sys
+import sys, os
 import json
 import re
 import argparse
 import MySQLdb as mdb
 import cherrypy
+import paho.mqtt.client as mqtt
 from houseutils import lprint, getHouseValues, timer, checkTimer, dbTimeStamp
 
+#--------The mqtt handlers
+def on_Connect(client, userdata, flags, rc):
+    lprint("mqtt connection to Desert-Home returned result: " + str(rc) )
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe("Desert-Home/Command/Wemo",0)
+    
+def on_Message(client, userdata, msg):
+    # This is receiving messages from the local mqtt server
+    # that (most likely) were originated from Amazon Alexa
+    # Note that this isn't limited to Alexa only, they could have
+    # come from any other process
+    lprint(msg.topic, msg.payload)
+    device = msg.payload.partition(' ')[0]
+    newstate = msg.payload.partition(' ')[2]
+    if device == "eastPatioLight" :
+        if newstate == 'on':
+            on("patio")
+        else:
+            off("patio")
+    elif device == "outsideLights":
+        if newstate == 'on':
+            outsideLightsOn();
+        else:
+            outsideLightsOff();
+    else:
+        lprint("Don't know about " + device)
+            
 #--------This is for the HTML interface 
 def openSite(Url):
     #lprint (Url)
@@ -333,6 +362,8 @@ def handleCommand(command):
         toggle("patio")
     elif (c[0] == 'patioOff'):
         off('patio');
+    elif (c[0] == 'patioOn'):
+        on('patio');
     else:
         lprint("Weird command = " + str(c))
 
@@ -547,6 +578,18 @@ if __name__ == "__main__":
     # timed things.
     checkLightsTimer = timer(doLights, seconds=2)
     keepAliveTimer = timer(keepAlive, minutes=4)
+    #mqtt
+    processName = os.path.basename(sys.argv[0])
+
+    mqttc = mqtt.Client(client_id=processName, clean_session=True)
+    mqttServer = hv["mqttserver"]
+    mqttc.on_connect = on_Connect
+    mqttc.on_message = on_Message
+    mqttc.connect(mqttServer, 1883, 60)
+
+    mqttc.loop_start()
+    lprint("started mqtt loop")
+    
     # Now configure the cherrypy server using the values
     cherrypy.config.update({'server.socket_host' : ipAddress.encode('ascii','ignore'),
                             'server.socket_port': port,

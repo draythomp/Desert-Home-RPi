@@ -63,36 +63,21 @@ def handleTempSensor(data):
         hdbconn = mdb.connect(host=hdbHost, user=hdbUser, 
             passwd=hdbPassword, db=hdbName)
         hc = hdbconn.cursor()
-        hc.execute("select count(*) from tempsensor where name = %s;", 
-            (jData['TempSensor']['name'],))
-        count = hc.fetchone()[0]
-        if count == 0:
-            lprint ("Adding new tempSensor")
-            hc.execute("insert into tempsensor(name,"
-                "pvolt, temp, utime)"
-                "values (%s, %s, %s, %s);",
-                (jData["TempSensor"]["name"],
-                jData["TempSensor"]["voltage"],
-                jData["TempSensor"]["temperature"],
-                dbTimeStamp()))
-        else:
-            #lprint ("updating tempsensor ", jData['TempSensor']['name'])
-            hc.execute("update tempsensor set " 
-                "pvolt = %s,"
-                "temp = %s,"
-                "utime = %s where name = %s ;",
-                (jData['TempSensor']['voltage'],
-                jData['TempSensor']['temperature'],
-                dbTimeStamp(), 
-                jData['TempSensor']['name']
-                ))
-            hdbconn.commit()
-            hdbconn.close()
+        lprint ("recording tempsensor ", jData['TempSensor']['name'])
+        hc.execute("insert into tempsensor(name,"
+            "pvolt, temp, utime)"
+            "values (%s, %s, %s, %s);",
+            (jData["TempSensor"]["name"],
+            jData["TempSensor"]["voltage"],
+            jData["TempSensor"]["temperature"],
+            dbTimeStamp()))
+        hdbconn.commit()
+        hdbconn.close()
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         hdbconn.close()
     if (jData['TempSensor']['command'] != 'nothing'):
-        lprint("Button Command from sensor")
+        lprint("Button Command from sensor " )
         #got a command from the sensor
         talkHTML(irisControl,"command?whichone=mbdrm&what=toggle");
         talkHTML(wemoControl,"wemocommand?whichone=patio&what=off");
@@ -166,9 +151,9 @@ def handleGarageFreezer(data):
         lprint("The buffer:")
         lprint(str(msg.payload))
         return
-    print jData
-    print "temp       : ", jData["garagefreezer"]["temperature"]
-    print "utime      : ", jData["garagefreezer"]["utime"]
+    #print jData
+    #print "temp       : ", jData["garagefreezer"]["temperature"]
+    #print "utime      : ", jData["garagefreezer"]["utime"]
     try:
         hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
         hc = hdbconn.cursor()

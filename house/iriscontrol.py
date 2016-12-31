@@ -14,6 +14,7 @@ Have fun
 '''
 from xbee import ZigBee 
 import logging
+import os
 import datetime
 import time
 import serial
@@ -24,8 +25,31 @@ from struct import *
 import MySQLdb as mdb
 import binascii
 import cherrypy
+import paho.mqtt.client as mqtt
 from houseutils import lprint, getHouseValues, timer, checkTimer, dbTimeStamp
 
+#--------The mqtt handlers
+def on_Connect(client, userdata, flags, rc):
+    print("mqtt connection to Desert-Home returned result: " + str(rc) )
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe("Desert-Home/Command/Iris",0)
+    
+def on_Message(client, userdata, msg):
+    # This is receiving messages from the local mqtt server
+    # that (most likely) were originated from Amazon Alexa
+    # Note that this isn't limited to Alexa only, they could have
+    # come from any other process
+    lprint(msg.topic, msg.payload)
+    device = msg.payload.partition(' ')[0]
+    newstate = msg.payload.partition(' ')[2]
+    if device == "mbLight" :
+        if newstate == 'on':
+            switchOn("mbdrm")
+        else:
+            switchOff("mbdrm")
+    else:
+        lprint("alexa doesn't know about device " + device)
 # this is the only way I could think of to get the address strings to store.
 # I take the ord() to get a number, convert to hex, then take the 3 to end
 # characters and pad them with zero and finally put the '0x' back on the front
@@ -517,7 +541,7 @@ def sendSwitch(whereLong, whereShort, srcEndpoint, destEndpoint,
         )
         
 def getSwitchStatus(whichOne):
-    # This command causes a message return holding the state of the switch
+    # Grab the switch status from the database
     print 'Switch Status for', whichOne, 'is',
     dbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
     c = dbconn.cursor()
@@ -656,6 +680,16 @@ hv = getHouseValues()
 
 # This is where I'll store information about the switches
 sSwitches = {}
+# mqtt
+processName = os.path.basename(sys.argv[0])
+mqttc = mqtt.Client(client_id=processName, clean_session=True)
+mqttServer = hv["mqttserver"]
+mqttc.on_connect = on_Connect
+mqttc.on_message = on_Message
+mqttc.connect(mqttServer, 1883, 60)
+
+mqttc.loop_start()
+lprint("started mqtt loop")
 
 #-------------------------------------------------
 # the database where I'm storing stuff
