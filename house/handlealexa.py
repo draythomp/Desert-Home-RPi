@@ -6,10 +6,58 @@ import paho.mqtt.client as mqtt
 import ssl
 import json
 import pprint
+import urllib2
 import MySQLdb as mdb
 from houseutils import lprint, getHouseValues, timer, checkTimer
 
 pp = pprint.PrettyPrinter(indent=2)
+
+def openSite(Url):
+    #print Url
+    try:
+        webHandle = urllib2.urlopen(Url, timeout=5) #if it doesn't answer in 5 seconds, it won't
+    except urllib2.HTTPError, e:
+        errorDesc = BaseHTTPServer.BaseHTTPRequestHandler.responses[e.code][0]
+        print "Error: cannot retrieve URL: " + str(e.code) + ": " + errorDesc
+        raise
+    except urllib2.URLError, e:
+        print "Error: cannot retrieve URL: " + e.reason[1]
+        raise
+    except urllib2.HTTPError as e:
+        print e.code
+        print e.read()
+        raise
+    except:  #I kept getting strange errors when I was first testing it
+        e = sys.exc_info()[0]
+        lprint(url)
+        lprint ("Odd Error: %s" % e )
+        raise
+    return webHandle
+    
+def talkHTML(ip, command):
+    website = openSite("HTTP://" + ip + '/' + urllib2.quote(command, safe="%/:=&?~#+!$,;'@()*[]"))
+    # now (maybe) read the status that came back from it
+    if website is not None:
+        websiteHtml = website.read()
+        return  websiteHtml
+
+    
+#------------------------------------------------
+def controlThermo(whichOne, command):
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("select address from thermostats "
+            "where location=%s; ", (whichOne,))
+        thermoIp = hc.fetchone()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close
+    website = openSite("HTTP://" + thermoIp[0] + "/" + command)
+    websiteHtml = website.read()
+    return  websiteHtml
+
+
 
 def on_awsConnect(client, userdata, flags, rc):
     lprint("mqtt connection to AWSIoT returned result: " + str(rc) )
@@ -93,7 +141,7 @@ def on_awsMessage(client, userdata, msg):
         lprint (pp.pformat(payload["state"]))
         deviceGroup = ""
         for item in payload["state"].keys():
-            if item == "eastPatioLight":
+            if item == "westPatioLight":
                 command = str(item + ' ' + payload["state"][item])
                 deviceGroup = "Wemo"
                 sendCommand(deviceGroup, command)
@@ -116,6 +164,46 @@ def on_awsMessage(client, userdata, msg):
                 command = "outsideLights off"
                 deviceGroup = "wemo"
                 sendCommand(deviceGroup, command)
+            # The two thermostats are http devices because I built
+            # them early on and didn't know about XBees. Eventually,
+            # they will get replaced with a whole house solution
+            # that will be on the XBee network. Also, since it was an 
+            # early device the commands it uses are strange. This means I 
+            # have to fiddle around a LOT composing the commands.
+            elif (   item == "nThermoTempSet" 
+                  or item == "sThermoTempSet"):
+                whichOne = "South"
+                if ( item[0] == 'n'):
+                    whichOne = 'north'
+                command = "temp=" + payload["state"][item]
+                print whichOne,command
+                controlThermo(whichOne,command)
+            elif (   item == "nThermoModeSet" 
+                  or item == "sThermoModeSet"):
+                whichOne = "South"
+                if ( item[0] == 'n'):
+                    whichOne = 'north'
+                if ( payload["state"][item] == "heating"):
+                    command = "heat"
+                elif ( payload["state"][item] == "cooling"):
+                    command = "cool"
+                else:
+                    command ="off"
+                print whichOne,command
+                controlThermo(whichOne,command)
+            elif (   item == "nThermoFanSet" 
+                  or item == "sThermoFanSet"):
+                whichOne = "South"
+                if ( item[0] == 'n'):
+                    whichOne = 'north'
+                if ( payload["state"][item] == "recirc"):
+                    command = "fan=recirc"
+                elif ( payload["state"][item] == "on"):
+                    command = "fan=on"
+                else:
+                    command ="fan=auto"
+                print whichOne,command
+                controlThermo(whichOne,command)
             else:
                 lprint("I don't know about item ", item)
                 return
@@ -203,24 +291,49 @@ def updateIotShadow():
     hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
     try:
         c = hdbconn.cursor()
+        # Controlled Lights
         c.execute('select status from wemo where name="patio";')
-        eastPatioLight = c.fetchone()[0]
+        westPatioLight = c.fetchone()[0]
         c.execute('select status from wemo where name="outsidegarage";')
         outsideGarage = c.fetchone()[0]
         c.execute('select status from wemo where name="frontporch";')
         frontPorch = c.fetchone()[0]
         c.execute('select status from wemo where name="cactusspot";')
         cactusSpot = c.fetchone()[0]
-        if cactusSpot == "On":
-            outsideLights = "on"
-        else:
-            outsideLights = "off"
         c.execute('select status from smartswitch where name = "mbdrm";')
         mbLight = c.fetchone()[0]
+        # Garage Doors
         c.execute('select door1 from garage;')
         gDoor1 = c.fetchone()[0]
         c.execute('select door2 from garage;')
         gDoor2 = c.fetchone()[0]
+        # North and South Thermostat Data
+        c.execute('select status from thermostats where location="North";')
+        nThermoMode= c.fetchone()[0]
+        c.execute('select status from thermostats where location="South";')
+        sThermoMode= c.fetchone()[0]
+        c.execute('select `temp-reading` from thermostats where location="North";')
+        nThermoTemp= c.fetchone()[0]
+        c.execute('select `temp-reading` from thermostats where location="South";')
+        sThermoTemp= c.fetchone()[0]
+        c.execute('select `peak` from thermostats where location="North";')
+        nThermoPeak= c.fetchone()[0]
+        c.execute('select `peak` from thermostats where location="South";')
+        sThermoPeak= c.fetchone()[0]
+        #North and South thermostat Settings
+        c.execute('select `s-mode` from thermostats where location="North";')
+        nThermoModeSet= c.fetchone()[0]
+        c.execute('select `s-mode` from thermostats where location="South";')
+        sThermoModeSet= c.fetchone()[0]
+        c.execute('select `s-fan` from thermostats where location="North";')
+        nThermoFanSet= c.fetchone()[0]
+        c.execute('select `s-fan` from thermostats where location="South";')
+        sThermoFanSet= c.fetchone()[0]
+        c.execute('select `s-temp` from thermostats where location="North";')
+        nThermoTempSet= c.fetchone()[0]
+        c.execute('select `s-temp` from thermostats where location="South";')
+        sThermoTempSet= c.fetchone()[0]
+
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
     hdbconn.close()
@@ -241,7 +354,7 @@ def updateIotShadow():
     report += "\"windspeed\": \"%s\", " %(int(round(windSpeed)))
     report += "\"winddirection\": \"%s\", " %(directionString)
     report += "\"raintoday\": \"%s\", " %(rainToday)
-    report += "\"eastPatioLight\": \"%s\", " %(eastPatioLight.lower())
+    report += "\"westPatioLight\": \"%s\", " %(westPatioLight.lower())
     report += "\"cactusSpot\": \"%s\", " %(cactusSpot.lower())
     report += "\"outsideGarage\": \"%s\", " %(outsideGarage.lower())
     report += "\"frontPorch\": \"%s\", " %(frontPorch.lower())
@@ -249,6 +362,18 @@ def updateIotShadow():
     report += "\"mbLight\": \"%s\", " %(mbLight.lower())
     report += "\"gDoor1\": \"%s\", " %(gDoor1.lower())
     report += "\"gDoor2\": \"%s\", " %(gDoor2.lower())
+    report += "\"nThermoMode\": \"%s\", " %(nThermoMode.lower())
+    report += "\"sThermoMode\": \"%s\", " %(sThermoMode.lower())
+    report += "\"nThermoTemp\": \"%s\", " %(nThermoTemp.lower())
+    report += "\"sThermoTemp\": \"%s\", " %(sThermoTemp.lower())
+    report += "\"nThermoPeak\": \"%s\", " %(nThermoPeak.lower())
+    report += "\"sThermoPeak\": \"%s\", " %(sThermoPeak.lower())
+    report += "\"nThermoModeSet\": \"%s\", " %(nThermoModeSet.lower())
+    report += "\"sThermoModeSet\": \"%s\", " %(sThermoModeSet.lower())
+    report += "\"nThermoFanSet\": \"%s\", " %(nThermoFanSet.lower())
+    report += "\"sThermoFanSet\": \"%s\", " %(sThermoFanSet.lower())
+    report += "\"nThermoTempSet\": \"%s\", " %(nThermoTempSet.lower())
+    report += "\"sThermoTempSet\": \"%s\", " %(sThermoTempSet.lower())
     report += "\"lastEntry\": \"isHere\" "
     report += "} } }" 
     # Print something to show it's alive

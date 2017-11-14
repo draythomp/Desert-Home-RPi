@@ -32,7 +32,7 @@ def on_Message(client, userdata, msg):
     lprint(msg.topic, msg.payload)
     device = msg.payload.partition(' ')[0]
     newstate = msg.payload.partition(' ')[2]
-    if device == "eastPatioLight" :
+    if device == "westPatioLight" :
         if newstate == 'on':
             on("patio")
         else:

@@ -85,10 +85,19 @@
 					name: "Time"
 				},
 				series: [{
-					name: 'MB',
+					name: 'MBR',
 					data: []
 				}, {
 					name: 'GR',
+					data:[]
+				}, {
+					name: 'CR',
+					data:[]
+				}, {
+					name: 'LR',
+					data:[]
+				}, {
+					name: 'GBR',
 					data:[]
 				}]
 			};
@@ -111,6 +120,15 @@
                         if (val['name'] == 'Temp2'){
                             options.series[1].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
                         }
+                        if (val['name'] == 'Temp3'){
+                            options.series[2].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                        }
+                        if (val['name'] == 'Temp4'){
+                            options.series[3].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                        }
+                        if (val['name'] == 'Temp5'){
+                            options.series[4].data.push([Date.parse(key)-(7*60*60*1000), parseFloat(val["temp"])]);
+                        }
                         });
                 })
                 .fail(function( jqxhr, textStatus, error ) {
@@ -122,6 +140,15 @@
 				return(a[0]-b[0]);
 				});
 			options.series[1].data.sort(function(a,b){
+				return(a[0]-b[0]);
+				});
+			options.series[2].data.sort(function(a,b){
+				return(a[0]-b[0]);
+				});
+			options.series[3].data.sort(function(a,b){
+				return(a[0]-b[0]);
+				});
+			options.series[4].data.sort(function(a,b){
 				return(a[0]-b[0]);
 				});
 			var chart = new Highcharts.Chart(options);

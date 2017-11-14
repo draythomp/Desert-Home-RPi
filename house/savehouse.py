@@ -209,7 +209,7 @@ frequency = ""
 
 def updatePower():
     #print ('rpower %s, apower %s, pfactor %s, voltage %s, current %s, frequency %s' 
-    #   %(rpower, apower, pfactor, voltage, current, frequency))
+    #  %(rpower, apower, pfactor, voltage, current, frequency))
     #print "updating power in database"
     try:
         hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)

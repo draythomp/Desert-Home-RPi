@@ -239,7 +239,7 @@ def handlePacket(data):
                     hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
                     hc = hdbconn.cursor()
                     # The last power reading taken
-                    hc.execute("select rpower from power")
+                    hc.execute("select rpower from power order by utime desc limit 1")
                     spower = int(float(hc.fetchone()[0]))
                     # The last report from the pool
                     hc.execute("select motor from pool")

@@ -50,6 +50,7 @@
     function gatherdata(){
         console.log("gathering data");
         $.getJSON(debugUrl+"housedata.php",function(data,status){ 
+        console.log("got data");
             //console.log(data);
             // Beginning of Thermostat items Starting with the North
             // but first, save settings to restore in the pop up 
@@ -93,6 +94,7 @@
             $("#nmode").text(data.ntms);
             $("#ntt").text(data.ntt); 
             $("#ntp").text(data.ntp);
+            $("#ntfs").text(data.ntfs);
             // current activity
             //console.log("current activity: ", data.ntm);
             if (data.ntm=="Recirc"){
@@ -158,6 +160,7 @@
             $("#smode").text(data.stms);
             $("#stt").text(data.stt);
             $("#stp").text(data.stp);
+            $("#stfs").text(data.stfs);
             // current activity
             //console.log("current activity: ", data.stm);
             if (data.stm=="Recirc"){
@@ -649,6 +652,9 @@
                     <span id=ntp style="position:absolute; left:125px; top:6px;">
                     Wait
                     </span>
+                    <span id=ntfs style="position:absolute; left:135px; bottom:6px;">
+                    Wait
+                    </span>
                     <a href="#nsettings" data-rel="popup"
                         class="ui-btn ui-btn-inline ui-mini 
                         ui-icon-gear ui-btn-icon-notext ui-nodisc-icon"
@@ -671,6 +677,9 @@
                     Wait
                     </span>
                     <span id=stp style="position:absolute; left:125px; top:6px;">
+                    Wait
+                    </span>
+                    <span id=stfs style="position:absolute; left:135px; bottom:6px;">
                     Wait
                     </span>
                     <a href="#ssettings" data-rel="popup"

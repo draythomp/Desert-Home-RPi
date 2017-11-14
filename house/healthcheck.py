@@ -73,7 +73,7 @@ def fixTime(incoming):
 def checkUpdateTimes(items):
     notReporting = []
     try:
-        mdbconn = mdb.connect(host=dbHost, user=dbUser, passwd=dbPassword, db=dbName)
+        mdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
         mc = mdbconn.cursor()
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
@@ -139,10 +139,92 @@ def checkUpdateTimes(items):
             notReporting.append(key)
     return notReporting
 
+def checkHouseFreezer():    
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("SELECT temperature FROM housefreezer ORDER BY timestamp DESC limit 1")
+        temp = hc.fetchone()[0]
+        cutOff = hv["housefreezertemp"]
+        print "House freezer: ", temp, cutOff
+        if temp > cutOff:
+            return {"House Freezer":temp}
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+
+def checkHouseRefrigerator():    
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("SELECT temperature FROM housefridge ORDER BY timestamp DESC limit 1")
+        temp = hc.fetchone()[0]
+        cutOff = hv["refrigeratortemp"]
+        print "House fridge: ",temp, cutOff
+        if temp > cutOff:
+            return {"Fridge":temp}
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+    
+def checkGarageFreezer():    
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        hc.execute("SELECT temperature FROM garagefreezer ORDER BY timestamp DESC limit 1")
+        temp = hc.fetchone()[0]
+        cutOff = hv["housefreezertemp"]
+        print "Garage freezer", temp, cutOff
+        if temp > cutOff:
+            return {"Garage Freezer":temp}
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+
+def checkTempSensor(name, hc):
+    try:
+        select = "SELECT pvolt FROM tempsensor where name = '" + name + "' ORDER BY rdate DESC limit 1"
+        hc.execute(select)
+        volt = hc.fetchone()[0]
+        print "Voltage at", name, "is", volt
+        if float(volt) < 2.9:
+            return {name:volt}
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+
+def checkTempSensors():
+    sensors = {"Temp1":"Master BR", "Temp2":"Great Room", "Temp3":"Office", "Temp4":"Living Room", "Temp5":"Guest BR"}
+    battLow = []
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        for key, value in sensors.iteritems():
+            result = checkTempSensor(key, hc)
+            if result is not None:
+                k, v = result.items()[0]
+                #print sensors[k],v
+                battLow.append(sensors[k]+" battery is at "+v)
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+    return(battLow)
+    
 def checkOtherThings():
     problemThings = []
     # I used to have special devices in here and may have
     # to use it again. 
+    result = checkHouseFreezer()
+    if result is not None:
+        problemThings.append(result)
+    result = checkHouseRefrigerator()
+    if result is not None:
+        problemThings.append(result)
+    result = checkGarageFreezer()
+    if result is not None:
+        problemThings.append(result)
+    result = checkTempSensors()
+    if len(result) != 0:
+        problemThings.append(result)
     return problemThings
     
 processList = ["monitorhouse.py", "wemocontrol.py", "iriscontrol.py",
@@ -159,8 +241,8 @@ def monitorTheMonitor():
         lprint ("Problem with: ", badThings)
         sendMail("Problem Found", badThings)
     otherThings = checkOtherThings()
-    if (len(otherThings) != 0):
-        somethingBad = "Go check %s"%(str(otherThings))
+    if len(otherThings) != 0:
+        somethingBad = str(otherThings)
         lprint ("Problem with:", somethingBad)
         sendMail("Problem Found", somethingBad)
 
@@ -226,10 +308,10 @@ if __name__ == '__main__':
     # the database where I'm storing stuff
     DATABASE= hv["database"]
     
-    dbName = hv["houseDatabase"]
-    dbHost = hv["houseHost"]
-    dbPassword = hv["housePassword"]
-    dbUser = hv["houseUser"]
+    hdbName = hv["houseDatabase"]
+    hdbHost = hv["houseHost"]
+    hdbPassword = hv["housePassword"]
+    hdbUser = hv["houseUser"]
     
     # Get the ip address and port number you want to use
     # from the houserc file
