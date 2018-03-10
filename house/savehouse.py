@@ -63,7 +63,7 @@ def handleTempSensor(data):
         hdbconn = mdb.connect(host=hdbHost, user=hdbUser, 
             passwd=hdbPassword, db=hdbName)
         hc = hdbconn.cursor()
-        lprint ("recording tempsensor ", jData['TempSensor']['name'])
+        #lprint ("recording tempsensor ", jData['TempSensor']['name'])
         hc.execute("insert into tempsensor(name,"
             "pvolt, temp, utime)"
             "values (%s, %s, %s, %s);",
@@ -188,12 +188,16 @@ def handleGarage(data):
         try:
             hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
             hc = hdbconn.cursor()
-            hc.execute("update garage set door1 = %s, "
-                "door2 = %s,"
-                "waterh = %s,"
-                "utime = %s;",
-                (rxList[1], rxList[2],rxList[3].rstrip(),
-                dbTimeStamp()))
+#            hc.execute("update garage set door1 = %s, "
+#                "door2 = %s,"
+#                "waterh = %s,"
+#                "utime = %s;",
+#                (rxList[1], rxList[2],rxList[3].rstrip(),
+#                dbTimeStamp())) 
+            hc.execute("insert into garage (door1, door2, waterh, utime)"
+                "values(%s, %s, %s, %s);",
+                (rxList[1], rxList[2], rxList[3].rstrip(),
+                dbTimeStamp() ))
             hdbconn.commit()
         except mdb.Error, e:
             lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))

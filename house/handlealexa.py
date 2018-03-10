@@ -303,10 +303,11 @@ def updateIotShadow():
         c.execute('select status from smartswitch where name = "mbdrm";')
         mbLight = c.fetchone()[0]
         # Garage Doors
-        c.execute('select door1 from garage;')
-        gDoor1 = c.fetchone()[0]
-        c.execute('select door2 from garage;')
-        gDoor2 = c.fetchone()[0]
+        c.execute ("select door1, door2 from garage where rdate = " 
+                   "(select max(rdate) from garage);")
+        temp = c.fetchall()
+        gDoor1 = temp[0][0]
+        gDoor2 = temp[0][1]
         # North and South Thermostat Data
         c.execute('select status from thermostats where location="North";')
         nThermoMode= c.fetchone()[0]

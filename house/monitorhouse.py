@@ -273,7 +273,7 @@ def handlePacket(data):
                 #print("Got Time Packet")
                 pass
             elif rxList[0] == 'Garage':
-                #print("Got Garage Packet")
+                print("Got Garage Packet")
                 err = mqttc.publish("Desert-Home/Device/Garage",data['rf_data'][:-1],retain=True);
                 if err[0] != 0:
                     lprint("got error {} on publish".format(err[0]))

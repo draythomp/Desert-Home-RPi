@@ -122,6 +122,13 @@ def checkUpdateTimes(items):
                 collected.update({"power" : updateTime})
             except mdb.Error, e:
                  lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+        elif (item == 'garage'):
+            try:
+                mc.execute("select utime from power order by utime desc limit 1;")
+                updateTime = fixTime(mc.fetchone())
+                collected.update({"garage" : updateTime})
+            except mdb.Error, e:
+                 lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         else:
             try:
                 mc.execute("select utime from {0};".format(item))
@@ -228,9 +235,9 @@ def checkOtherThings():
     return problemThings
     
 processList = ["monitorhouse.py", "wemocontrol.py", "iriscontrol.py",
-                "events.py", "updateoldxively.py", "mqttlogger.py", "savehouse.py"]
+                "events.py", "mqttlogger.py", "savehouse.py"]
 recordList = ["garage", "pool", "power", "septic", "thermostats", 
-                "smartswitch", "lights", "oldxively"]
+                "smartswitch", "lights"]
 
 def monitorTheMonitor():
     #Check to see if all the processes are running
@@ -276,7 +283,7 @@ def handleCommand(command):
         if (what == 'all'):
             lprint ("Doing a master reset")
             processes = ["monitorhouse", "houseevents", "wemocontrol",
-                "updateoldxively", "watchappliance", "iriscontrol"]
+                "watchappliance", "iriscontrol"]
             for process in processes:
                 fixProcess(process)
         else:

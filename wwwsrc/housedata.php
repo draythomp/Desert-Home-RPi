@@ -82,12 +82,14 @@ $ntts = mysqlGetIt(
 $stts = mysqlGetIt(
 	'select `s-temp` from thermostats where location="South";', $hdb);
 # Garage stuff
+$tmp = mysqlGetIt('select max(rdate) from garage;',$hdb);
 $gd1 = mysqlGetIt(
-	'select door1 from garage;', $hdb);
+	"select door1 from garage where rdate = '$tmp';", $hdb);
 $gd2 = mysqlGetIt(
-	'select door2 from garage;', $hdb);
+	"select door2 from garage where rdate = '$tmp';", $hdb);
 $wh = mysqlGetIt(
-	'select waterh from garage;', $hdb);
+        "select waterh from garage where rdate = '$tmp';", $hdb
+        );
 # Pool stuff
 $pm = mysqlGetIt(
 	'select motor from pool;', $hdb);
