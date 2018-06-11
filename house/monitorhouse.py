@@ -207,6 +207,11 @@ def handlePacket(data):
                 err = mqttc.publish("Desert-Home/Device/PowerMon",data['rf_data'][:-1],retain=True);
                 if err[0] != 0:
                     lprint("got error {} on publish".format(err[0]))
+            if "WaterHeater" in  jData.keys():
+                lprint(jData)
+                err = mqttc.publish("Desert-Home/Device/WaterHeater",data['rf_data'][:-1],retain=True);
+                if err[0] != 0:
+                    lprint("got error {} on publish".format(err[0]))
         except mdb.Error, e:
             lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
             return
@@ -219,6 +224,7 @@ def handlePacket(data):
             lprint(data)
             return
         except ValueError: # Old style Data received
+            #print data['rf_data']
             rxList = data['rf_data'].split(',')
             
             if rxList[0] == 'Status': #This was the status send by the old controller
@@ -273,7 +279,7 @@ def handlePacket(data):
                 #print("Got Time Packet")
                 pass
             elif rxList[0] == 'Garage':
-                print("Got Garage Packet")
+                #print("Got Garage Packet")
                 err = mqttc.publish("Desert-Home/Device/Garage",data['rf_data'][:-1],retain=True);
                 if err[0] != 0:
                     lprint("got error {} on publish".format(err[0]))
@@ -440,11 +446,12 @@ def handleCommand(command):
         else:
             lprint ("haven't done this yet", device, todo)
     elif device == 'Garage':
+        # water heater is in the garage, so left it here.
         lprint ("Garage command", todo)
         if (todo == 'waterhon'):
-            sendPacket(BROADCAST, "Garage,waterheateron\r")
+            sendPacket(BROADCAST, "WaterHeater,waterheateron\r")
         elif (todo == 'waterhoff'):
-            sendPacket(BROADCAST, "Garage,waterheateroff\r")
+            sendPacket(BROADCAST, "WaterHeater,waterheateroff\r")
         elif (todo == 'door1open'):
             sendPacket(BROADCAST, "Garage,door1\r")
         elif (todo == 'door1close'):
@@ -453,6 +460,14 @@ def handleCommand(command):
             sendPacket(BROADCAST, "Garage,door2\r")
         elif (todo == 'door2close'):
             sendPacket(BROADCAST, "Garage,door2\r")
+        else:
+            lprint ("haven't done this yet")
+    elif device == 'WaterHeater':
+        lprint ("WaterHeater command", todo)
+        if (todo == 'waterhon'):
+            sendPacket(BROADCAST, "WaterHeater,waterheateron\r")
+        elif (todo == 'waterhoff'):
+            sendPacket(BROADCAST, "WaterHeater,waterheateroff\r")
         else:
             lprint ("haven't done this yet")
     elif device == 'Freezer':

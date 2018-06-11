@@ -194,7 +194,7 @@ def checkTempSensor(name, hc):
         hc.execute(select)
         volt = hc.fetchone()[0]
         print "Voltage at", name, "is", volt
-        if float(volt) < 2.9:
+        if float(volt) < 2.5:
             return {name:volt}
     except mdb.Error, e:
         lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))

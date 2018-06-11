@@ -38,9 +38,36 @@
         if (secret){
             logit("The super secret magic word is you're trying is: "+secret);
         }
+        /* 
+        Using Grafana graphs from both internal and external to the house
+        requires that the different machine be hard-coded in as well as the
+        port to access be changed. I changed the port number in the onclick
+        event for the button, and the URL text below.
+        
+        */
+        logit("it is>"+$("#graphURL").attr("href")+"<");
+        if ($("#graphURL").attr("href")=="xxx"){
+            var device="ipok";
+            var command="check";
+            $.post( debugUrl+"command.php",
+                {command:device+' '+command,secret:secret},
+                function(stuff){
+                    logit("command handler returned >" + stuff +"<");
+                    var isLocal = stuff.includes("OK");
+                    if (isLocal){
+                        logit("Local");
+                        $("#graphURL").attr("href", "http://192.168.0.207" + "/dashboard/db/general-chart?refresh=1m&orgId=1&from=now-24h&to=now");
+                    } else {
+                        logit("remote")
+                        $("#graphURL").attr("href", "dashboard/db/general-chart?refresh=1m&orgId=1&from=now-24h&to=now");
+                    }
+                    logit("Using >" + $("#graphURL").attr("href") + "< for graphs");
+                }
+            );
+        }
         gatherdata();
     });
-
+     
     // These GLOBAL variables control the update and values
     // of the thermostat sliders
     var savedSettings = {"ntts":0, "ntms":0, "ntfs":0,
@@ -430,13 +457,12 @@
 
     // This actually sends the command to take an action
     function doit(device, command){
-        logit("doit: "+device+", "+command);
+        logit("command sent: "+device+", "+command);
         $.post( debugUrl+"command.php",
             {command:device+' '+command,secret:secret},
             function(stuff){
-                $("#logit").append(stuff);
-                $bottom=$("#statusBox").prop('scrollHeight');
-                $("#logit").scrollTop($bottom);
+                logit("command handler returned >" + stuff +"<");
+                return stuff;
             }
         );
     }
@@ -464,7 +490,7 @@
             </div>
         </div>
         <!--Now some buttons to get to other features -->
-		<p><a href="#housepopup" data-rel="popup" data-role="button">House Chart</a></p>	
+		<p><a href="xxx" data-rel="popup" data-role="button" onclick="javascript:event.target.port=3000" id="graphURL">House Charts</a></p>	
 		<p><a href="#presetspage" data-role="button">Presets</a></p>	
 		<p><a href="#weatherpage" data-role="button">WeatherStation</a></p>	
 		<p><a href="#thermopage" data-role="button">Thermostats</a></p>	

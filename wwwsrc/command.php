@@ -45,12 +45,11 @@ function controlThermostats($whichone,$command){
 
 function ipControl($whichOne,$command){
     echo "<br />";
-    echo "URL will be: $whichOne/$command<br />";
+    echo "command URL will be: $whichOne/$command<br />";
 	$response = file_get_contents("http://$whichOne/$command");
 	return(true);
 
 };
-
 if( !$_REQUEST["command"] ){
 	echo "Didn't get a command";
 	die();
@@ -61,8 +60,10 @@ if( !$_REQUEST["command"] ){
    toss them out
 */
 $ip = $_SERVER["REMOTE_ADDR"];
+error_log($ip);
 $ipok = ip_in_range($ip, '192.168.*.*');
-echo $ip, ' in my house? ', ($ipok ? ' OK' : ' Fail'), "<br />";
+$errorString = sprintf("is %s in my house? %s", $ip,($ipok ? ' OK' : ' Fail'));
+error_log($errorString);
 $secret = isset($_REQUEST['secret'])?$_REQUEST['secret']:'jerk';
 /*echo "Got: $secret<br />*/
 $config = file_get_contents("/home/pi/.houserc");
@@ -92,6 +93,10 @@ echo "Received device action: $deviceAction<br />";
 
 $commandParts = explode(' ',$deviceAction);
 switch ($commandParts[0]){
+case "ipok":
+    echo ($ipok ? 'OK' : 'Fail');
+    error_log(sprintf("the ipok was >%s<", ($ipok ? 'OK' : 'Fail')));
+    break;
 case "nthermo":
 	#echo "case got nthermo<br />";
 	controlThermostats($Nthermo,$commandParts[1]);

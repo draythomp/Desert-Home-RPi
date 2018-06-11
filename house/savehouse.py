@@ -202,7 +202,43 @@ def handleGarage(data):
         except mdb.Error, e:
             lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
         hdbconn.close()
-        
+
+def handleWaterHeater(data):
+    print "updating water heater in database"
+    try:
+        jData = json.loads(data)
+    except ValueError as err:
+        lprint(err)
+        lprint("The buffer:")
+        lprint(str(msg.payload))
+        return
+    print jData
+    print "voltage       : ", jData["WaterHeater"]["V"]
+    print "current       : ", jData["WaterHeater"]["I"]
+    print "power         : ", jData["WaterHeater"]["P"]
+    print "energy        : ", jData["WaterHeater"]["E"]
+    print "top temp      : ", jData["WaterHeater"]["TT"]
+    print "bottom temp   : ", jData["WaterHeater"]["BT"]
+    print "power applied : ", jData["WaterHeater"]["PA"]
+    try:
+        hdbconn = mdb.connect(host=hdbHost, user=hdbUser, passwd=hdbPassword, db=hdbName)
+        hc = hdbconn.cursor()
+        whichone = dbTimeStamp()
+        hc.execute("insert into waterheater (voltage, current, power, energy,ttemp,btemp,waterh)"
+            "values(%s,%s,%s,%s,%s,%s,%s);",
+            (jData["WaterHeater"]["V"],
+            jData["WaterHeater"]["I"],
+            jData["WaterHeater"]["P"],
+            jData["WaterHeater"]["E"],
+            jData["WaterHeater"]["TT"],
+            jData["WaterHeater"]["BT"],
+            jData["WaterHeater"]["PA"]
+            ))
+        hdbconn.commit()
+    except mdb.Error, e:
+        lprint ("Database Error %d: %s" % (e.args[0],e.args[1]))
+    hdbconn.close()
+       
 # power record only gets updated once a minute
 rpower = ""
 apower = ""
@@ -259,6 +295,7 @@ def on_connect(client, userdata, rc):
                     ("Desert-Home/Device/HouseFreezer",0),
                     ("Desert-Home/Device/HouseFridge",0),
                     ("Desert-Home/Device/GarageFreezer",0),
+                    ("Desert-Home/Device/WaterHeater",0),
                     ("Desert-Home/Device/PowerMon",0)])
 
 # The callback for when a PUBLISH message is received from the server.
@@ -285,6 +322,9 @@ def on_message(client, userdata, msg):
     elif msg.topic == 'Desert-Home/Device/PowerMon':
         logIt("got power monitor")
         handlePowerMon(msg.payload)
+    elif msg.topic == 'Desert-Home/Device/WaterHeater':
+        logIt("got waterheater")
+        handleWaterHeater(msg.payload)
     else:
         lprint("got odd topic back: {}".format(msg.topic))
         logIt("got odd topic back: {}".format(msg.topic))

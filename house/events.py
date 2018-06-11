@@ -179,13 +179,13 @@ scheditem.add_job(outsideLightsOff, 'cron', hour=22, minute=0)
 scheditem.add_job(fansAuto, 'cron', day_of_week='mon-fri', hour=11, minute=55)
 
 # Every weekday (M-F) put the fans to recirculate for the evening
-scheditem.add_job(fansRecirc, 'cron', day_of_week='mon-fri', hour=19, minute=1)
+scheditem.add_job(fansRecirc, 'cron', day_of_week='mon-fri', hour=20, minute=1)
 
 # Specifically turn the pool motor off in case I forget
-scheditem.add_job(poolMotorOff, 'cron', hour=22, minute=0,args=["Pool Off for the night."])
+scheditem.add_job(poolMotorOff, 'cron', hour=23, minute=0,args=["Pool Off for the night."])
 
 # Specifically turn the pool motor on (high) to get some filter time
-scheditem.add_job(poolMotorOnHigh, 'cron', hour=19, minute=2,args=["Start pool motor (high)"])
+scheditem.add_job(poolMotorOnHigh, 'cron', hour=20, minute=2,args=["Start pool motor (high)"])
 
 # Specifically turn the pool motor on (low) to get some solar time
 # scheditem.add_job(poolMotorOnLow, 'cron', hour=7, minute=0,args=["Start pool motor (high)"])

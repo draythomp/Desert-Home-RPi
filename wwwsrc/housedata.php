@@ -33,6 +33,19 @@ function mysqlGetIt($statement, $conn){
     return ($row[0]);
 }
 
+function mysqlGetThem($statement, $conn){
+    $result = mysql_query($statement, $conn);
+    if (!$result){
+        echo mysql_error($conn);
+    }
+    $row = mysql_fetch_array($result, MYSQL_BOTH);
+    if (!$result){
+        echo mysql_error($conn);
+    }
+    return ($row);
+}
+
+
 #First, get the .houserc file for the parameters    
 $config = file_get_contents("/home/pi/.houserc");
 
@@ -54,41 +67,40 @@ mysql_select_db($hdbName, $hdb) or die('Unable to open database!' . mysql_error(
 # construction easier.  At least initially.
 $power = mysqlGetIt(
 	"select rpower from power order by utime desc limit 1", $hdb);
-# Current status of the two thermostats
-$ntm = mysqlGetIt(
-	'select status from thermostats where location="North";', $hdb);
-$stm = mysqlGetIt(
-	'select status from thermostats where location="South";', $hdb);
-$ntt = mysqlGetIt(
-	'select `temp-reading` from thermostats where location="North";', $hdb);
-$stt = mysqlGetIt(
-	'select `temp-reading` from thermostats where location="South";', $hdb);
-$ntp = mysqlGetIt(
-	'select `peak` from thermostats where location="North";', $hdb);
-$stp = mysqlGetIt(
-	'select `peak` from thermostats where location="South";', $hdb);
+# Current status of the two thermostats, first the North
+$tmp = mysqlGetThem("SELECT `status`, `temp-reading`, `peak`, `s-mode`,
+                    `s-fan`, `s-temp` FROM `thermostats` 
+                    where `location` = 'North'", $hdb); 
+//print_r($tmp);
+$ntm = $tmp['status'];
+$ntt = $tmp['temp-reading'];
+$ntp = $tmp['peak'];
+$ntms = $tmp['s-mode'];
+$ntfs = $tmp['s-fan'];
+$ntts = $tmp['s-temp'];
+# Now the South Thermostat
+$tmp=[];
+$tmp = mysqlGetThem("SELECT `status`, `temp-reading`, `peak`, `s-mode`,
+                    `s-fan`, `s-temp` FROM `thermostats` 
+                    where `location` = 'South'", $hdb); 
+//print_r($tmp);
+$stm = $tmp['status'];
+$stt = $tmp['temp-reading'];
+$stp = $tmp['peak'];
+$stms = $tmp['s-mode'];
+$stfs = $tmp['s-fan'];
+$stts = $tmp['s-temp'];
 
-    # The North and South Thermostat setting (temp, mode, fan)
-$ntms = mysqlGetIt(
-	'select `s-mode` from thermostats where location="North";', $hdb);
-$stms = mysqlGetIt(
-	'select `s-mode` from thermostats where location="South";', $hdb);
-$ntfs = mysqlGetIt(
-	'select `s-fan` from thermostats where location="North";', $hdb);
-$stfs = mysqlGetIt(
-	'select `s-fan` from thermostats where location="South";', $hdb);
-$ntts = mysqlGetIt(
-	'select `s-temp` from thermostats where location="North";', $hdb);
-$stts = mysqlGetIt(
-	'select `s-temp` from thermostats where location="South";', $hdb);
 # Garage stuff
 $tmp = mysqlGetIt('select max(rdate) from garage;',$hdb);
 $gd1 = mysqlGetIt(
 	"select door1 from garage where rdate = '$tmp';", $hdb);
 $gd2 = mysqlGetIt(
 	"select door2 from garage where rdate = '$tmp';", $hdb);
+# the water heater is a separate device, but it IS in the garage
+$tmp = mysqlGetIt('select max(rdate) from waterheater;',$hdb);
 $wh = mysqlGetIt(
-        "select waterh from garage where rdate = '$tmp';", $hdb
+        "select waterh from waterheater where rdate = '$tmp';", $hdb
         );
 # Pool stuff
 $pm = mysqlGetIt(
